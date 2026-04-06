@@ -1,6 +1,6 @@
 use super::{Algorithm, Point};
 
-pub struct FilledMidpointCircle {
+pub struct SitaramanFillCircle {
     pub center_x: i32,
     pub center_y: i32,
     pub radius: i32,
@@ -9,7 +9,7 @@ pub struct FilledMidpointCircle {
     point_radii: Vec<i32>,
 }
 
-impl Default for FilledMidpointCircle {
+impl Default for SitaramanFillCircle {
     fn default() -> Self {
         let mut s = Self {
             center_x: 0,
@@ -39,9 +39,9 @@ const PALETTE: [[f32; 3]; 12] = [
     [0.00, 0.50, 1.00], // sky blue
 ];
 
-impl Algorithm for FilledMidpointCircle {
+impl Algorithm for SitaramanFillCircle {
     fn name(&self) -> &str {
-        "Filled Midpoint Circle"
+        "Sitaraman Fill Circle"
     }
 
     fn compute(&mut self) {
@@ -94,7 +94,7 @@ impl Algorithm for FilledMidpointCircle {
     }
 }
 
-impl FilledMidpointCircle {
+impl SitaramanFillCircle {
     fn compute_ring(&mut self, r: i32) {
         let mut x = 0i32;
         let mut y = r;
@@ -107,7 +107,7 @@ impl FilledMidpointCircle {
                 d += 2 * x + 3;
             } else {
                 // Check fill decision parameter d' = d + 2y − 2r − 1
-                if d + 2 * y - 2 * r - 1 > 0 {
+                if d + 2 * y - 2 * r - 1 < 0 {
                     self.plot_octants(x + 1, y, r);
                 }
                 d += 2 * (x - y) + 5;

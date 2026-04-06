@@ -1,9 +1,10 @@
 use std::time::Instant;
 
 use crate::algorithms::{
-    baseline_circle::BaselineCircle, filled_midpoint_circle::FilledMidpointCircle,
-    filled_midpoint_circle_real::FilledMidpointCircleReal, midpoint_circle::MidpointCircle,
-    midpoint_line::MidpointLine, parallel_midpoint_circle::ParallelMidpointCircle, Algorithm,
+    baseline_circle::BaselineCircle, gap_fill_circle::GapFillCircle,
+    midpoint_circle::MidpointCircle, midpoint_line::MidpointLine,
+    parallel_midpoint_circle::ParallelMidpointCircle, sitaraman_fill_circle::SitaramanFillCircle,
+    Algorithm,
 };
 
 // ── Benchmark Statistics ──────────────────────────────────────────────────────
@@ -70,9 +71,9 @@ pub fn run_benchmark(radius: i32) -> Vec<(String, BenchmarkStats)> {
     ));
 
     results.push(benchmark_algorithm(
-        "Filled Midpoint Circle",
+        "Gap-Fill Circle",
         || {
-            let mut algo = Box::new(FilledMidpointCircle::default());
+            let mut algo = Box::new(GapFillCircle::default());
             algo.radius = radius;
             algo
         },
@@ -80,9 +81,9 @@ pub fn run_benchmark(radius: i32) -> Vec<(String, BenchmarkStats)> {
     ));
 
     results.push(benchmark_algorithm(
-        "Filled Midpoint Circle Real",
+        "Sitaraman Fill Circle",
         || {
-            let mut algo = Box::new(FilledMidpointCircleReal::default());
+            let mut algo = Box::new(SitaramanFillCircle::default());
             algo.radius = radius;
             algo
         },
