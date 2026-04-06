@@ -10,9 +10,10 @@ use winit::{
 
 use crate::{
     algorithms::{
-        baseline_circle::BaselineCircle, filled_midpoint_circle::FilledMidpointCircle,
-        filled_midpoint_circle_real::FilledMidpointCircleReal, midpoint_circle::MidpointCircle,
-        midpoint_line::MidpointLine, parallel_midpoint_circle::ParallelMidpointCircle, Algorithm,
+        baseline_circle::BaselineCircle, gap_fill_circle::GapFillCircle,
+        midpoint_circle::MidpointCircle, midpoint_line::MidpointLine,
+        parallel_midpoint_circle::ParallelMidpointCircle,
+        sitaraman_fill_circle::SitaramanFillCircle, Algorithm,
     },
     geometry,
     input::InputState,
@@ -63,10 +64,10 @@ impl AppState {
         let algorithms: Vec<Box<dyn Algorithm>> = vec![
             Box::new(BaselineCircle::default()),
             Box::new(MidpointCircle::default()),
-            Box::new(FilledMidpointCircle::default()),
+            Box::new(GapFillCircle::default()),
             Box::new(MidpointLine::default()),
             Box::new(ParallelMidpointCircle::default()),
-            Box::new(FilledMidpointCircleReal::default()),
+            Box::new(SitaramanFillCircle::default()),
         ];
 
         Self {

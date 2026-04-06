@@ -1,9 +1,9 @@
 pub mod baseline_circle;
-pub mod filled_midpoint_circle;
-pub mod filled_midpoint_circle_real;
+pub mod gap_fill_circle;
 pub mod midpoint_circle;
 pub mod midpoint_line;
 pub mod parallel_midpoint_circle;
+pub mod sitaraman_fill_circle;
 
 // ── Shared data types ─────────────────────────────────────────────────────────
 
