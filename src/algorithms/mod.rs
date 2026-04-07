@@ -1,7 +1,9 @@
 pub mod baseline_circle;
 pub mod gap_fill_circle;
 pub mod midpoint_circle;
+pub mod midpoint_ellipse;
 pub mod midpoint_line;
+pub mod midpoint_parabola;
 pub mod parallel_midpoint_circle;
 pub mod sitaraman_fill_circle;
 
@@ -37,6 +39,16 @@ pub trait Algorithm: Send + Sync {
 
     /// Optional analytic circle overlay: `Some((cx, cy, radius))`.
     fn overlay_circle(&self) -> Option<(i32, i32, i32)> {
+        None
+    }
+
+    /// Optional analytic parabola overlay: `Some((vertex_x, vertex_y, p))`.
+    fn overlay_parabola(&self) -> Option<(i32, i32, i32)> {
+        None
+    }
+
+    /// Optional analytic ellipse overlay: `Some((cx, cy, radius_x, radius_y))`.
+    fn overlay_ellipse(&self) -> Option<(i32, i32, i32, i32)> {
         None
     }
 

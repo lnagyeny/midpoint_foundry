@@ -115,6 +115,57 @@ pub fn build(
         }
     }
 
+    // ── 8. Analytic parabola overlay (if algorithm provides one) ─────────────
+    if let Some((cx, cy, k_int)) = algo.overlay_parabola() {
+        let ocx = cx as f32 + 0.5;
+        let ocy = cy as f32 + 0.5;
+        let k = 1.0 / k_int as f32;
+        let y_max = (1.0 / (k * k) / 4.0).sqrt() as i32;
+
+        for y in -y_max..=y_max {
+            let x = (k * (y * y) as f32) as f32;
+            if x.is_finite() {
+                let y_f = y as f32;
+                push_line(
+                    &mut lines,
+                    ocx - x,
+                    ocy + y_f,
+                    ocx + x,
+                    ocy + y_f,
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                );
+            }
+        }
+    }
+
+    // ── 9. Analytic ellipse overlay (if algorithm provides one) ─────────────
+    if let Some((cx, cy, rx, ry)) = algo.overlay_ellipse() {
+        let ocx = cx as f32 + 0.5;
+        let ocy = cy as f32 + 0.5;
+        let a = rx as f32;
+        let b = ry as f32;
+        let segments = 360usize;
+
+        for i in 0..segments {
+            let t0 = 2.0 * std::f32::consts::PI * (i as f32) / segments as f32;
+            let t1 = 2.0 * std::f32::consts::PI * ((i + 1) as f32) / segments as f32;
+            push_line(
+                &mut lines,
+                ocx + a * t0.cos(),
+                ocy + b * t0.sin(),
+                ocx + a * t1.cos(),
+                ocy + b * t1.sin(),
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+            );
+        }
+    }
+
     GeometryOutput {
         line_verts: lines,
         quad_verts: quads,

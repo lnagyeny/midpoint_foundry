@@ -34,10 +34,7 @@ pub fn draw_panel(
             // ── Algorithm selector ────────────────────────────────────────
             // Collect owned strings so the Vec doesn't borrow self.algorithms
             // while we also need &mut self.selected inside the combo closure.
-            let names: Vec<String> = algorithms
-                .iter()
-                .map(|a| a.name().to_owned())
-                .collect();
+            let names: Vec<String> = algorithms.iter().map(|a| a.name().to_owned()).collect();
             let prev = *selected;
 
             egui::ComboBox::from_label("Algorithm")
@@ -90,14 +87,18 @@ pub fn draw_panel(
             if let Some(results) = &ui_state.benchmark_results {
                 ui.separator();
                 ui.heading("Benchmark Results (µs)");
-                for (algo_name, stats) in results {
-                    ui.separator();
-                    ui.label(algo_name);
-                    ui.monospace(format!("Min:    {}", stats.min_us));
-                    ui.monospace(format!("Max:    {}", stats.max_us));
-                    ui.monospace(format!("Avg:    {}", stats.avg_us));
-                    ui.monospace(format!("Median: {}", stats.median_us));
-                }
+                egui::ScrollArea::vertical()
+                    .max_height(400.0)
+                    .show(ui, |ui| {
+                        for (algo_name, stats) in results {
+                            ui.separator();
+                            ui.label(algo_name);
+                            ui.monospace(format!("Min:    {}", stats.min_us));
+                            ui.monospace(format!("Max:    {}", stats.max_us));
+                            ui.monospace(format!("Avg:    {}", stats.avg_us));
+                            ui.monospace(format!("Median: {}", stats.median_us));
+                        }
+                    });
             }
 
             // ── Selected cell info ────────────────────────────────────────
@@ -112,10 +113,7 @@ pub fn draw_panel(
             }
 
             ui.separator();
-            ui.label(format!(
-                "{} points",
-                algorithms[*selected].points().len()
-            ));
+            ui.label(format!("{} points", algorithms[*selected].points().len()));
         });
 
     needs_recompute
