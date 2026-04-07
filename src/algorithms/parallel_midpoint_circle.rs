@@ -30,7 +30,7 @@ impl Algorithm for ParallelMidpointCircle {
 
     fn compute(&mut self) {
         self.points.clear();
-        
+
         // Phase 1: Generate edge points sequentially (the midpoint algorithm inherently requires this)
         let mut edge_points = Vec::new();
         let mut x = 0i32;
@@ -51,9 +51,7 @@ impl Algorithm for ParallelMidpointCircle {
         // Phase 2: Parallelize the octant reflection and collection using Rayon
         let all_octant_points: Vec<Point> = edge_points
             .par_iter()
-            .flat_map(|&(x, y)| {
-                self.generate_octants(x, y)
-            })
+            .flat_map(|&(x, y)| self.generate_octants(x, y))
             .collect();
 
         self.points = all_octant_points;
@@ -129,16 +127,40 @@ impl ParallelMidpointCircle {
     fn generate_octants(&self, x: i32, y: i32) -> Vec<Point> {
         let cx = self.center_x;
         let cy = self.center_y;
-        
+
         vec![
-            Point { x: cx + x, y: cy + y },
-            Point { x: cx - x, y: cy + y },
-            Point { x: cx + x, y: cy - y },
-            Point { x: cx - x, y: cy - y },
-            Point { x: cx + y, y: cy + x },
-            Point { x: cx - y, y: cy + x },
-            Point { x: cx + y, y: cy - x },
-            Point { x: cx - y, y: cy - x },
+            Point {
+                x: cx + x,
+                y: cy + y,
+            },
+            Point {
+                x: cx - x,
+                y: cy + y,
+            },
+            Point {
+                x: cx + x,
+                y: cy - y,
+            },
+            Point {
+                x: cx - x,
+                y: cy - y,
+            },
+            Point {
+                x: cx + y,
+                y: cy + x,
+            },
+            Point {
+                x: cx - y,
+                y: cy + x,
+            },
+            Point {
+                x: cx + y,
+                y: cy - x,
+            },
+            Point {
+                x: cx - y,
+                y: cy - x,
+            },
         ]
     }
 

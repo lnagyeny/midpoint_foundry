@@ -11,7 +11,8 @@ use winit::{
 use crate::{
     algorithms::{
         baseline_circle::BaselineCircle, gap_fill_circle::GapFillCircle,
-        midpoint_circle::MidpointCircle, midpoint_line::MidpointLine,
+        midpoint_circle::MidpointCircle, midpoint_ellipse::MidpointEllipse,
+        midpoint_line::MidpointLine, midpoint_parabola::MidpointParabola,
         parallel_midpoint_circle::ParallelMidpointCircle,
         sitaraman_fill_circle::SitaramanFillCircle, Algorithm,
     },
@@ -66,6 +67,8 @@ impl AppState {
             Box::new(MidpointCircle::default()),
             Box::new(GapFillCircle::default()),
             Box::new(MidpointLine::default()),
+            Box::new(MidpointParabola::default()),
+            Box::new(MidpointEllipse::default()),
             Box::new(ParallelMidpointCircle::default()),
             Box::new(SitaramanFillCircle::default()),
         ];
