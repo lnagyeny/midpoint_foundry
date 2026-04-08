@@ -11,10 +11,11 @@ use winit::{
 use crate::{
     algorithms::{
         baseline_circle::BaselineCircle, gap_fill_circle::GapFillCircle,
-        midpoint_circle::MidpointCircle, midpoint_ellipse::MidpointEllipse,
-        midpoint_line::MidpointLine, midpoint_parabola::MidpointParabola,
-        parallel_midpoint_circle::ParallelMidpointCircle,
-        sitaraman_fill_circle::SitaramanFillCircle, Algorithm,
+        gap_fill_ellipse::GapFillEllipse, midpoint_circle::MidpointCircle,
+        midpoint_ellipse::MidpointEllipse, midpoint_line::MidpointLine,
+        midpoint_parabola::MidpointParabola, parallel_midpoint_circle::ParallelMidpointCircle,
+        scanline_circle::ScanlineCircle, sitaraman_fill_circle::SitaramanFillCircle,
+        virtual_fill_ellipse::VirtualFillEllipse, Algorithm,
     },
     geometry,
     input::InputState,
@@ -71,6 +72,9 @@ impl AppState {
             Box::new(MidpointEllipse::default()),
             Box::new(ParallelMidpointCircle::default()),
             Box::new(SitaramanFillCircle::default()),
+            Box::new(ScanlineCircle::default()),
+            Box::new(GapFillEllipse::default()),
+            Box::new(VirtualFillEllipse::default()),
         ];
 
         Self {
@@ -150,7 +154,7 @@ impl ApplicationHandler for Application {
         }
 
         let attrs = Window::default_attributes()
-            .with_title("Midpoint Framework")
+            .with_title("Midpoint Foundry")
             .with_inner_size(PhysicalSize::new(WINDOW_W, WINDOW_H))
             .with_resizable(true);
 

@@ -106,10 +106,6 @@ impl GapFillCircle {
             if d < 0 {
                 d += 2 * x + 3;
             } else {
-                // Check fill decision parameter d' = d + 2y − 2r − 1
-                if d + 2 * y - 2 * r - 1 > 0 {
-                    self.plot_octants(x + 1, y, r);
-                }
                 d += 2 * (x - y) + 5;
                 y -= 1;
             }

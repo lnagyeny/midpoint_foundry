@@ -3,8 +3,8 @@ use std::time::Instant;
 use crate::algorithms::{
     baseline_circle::BaselineCircle, gap_fill_circle::GapFillCircle,
     midpoint_circle::MidpointCircle, midpoint_line::MidpointLine,
-    parallel_midpoint_circle::ParallelMidpointCircle, sitaraman_fill_circle::SitaramanFillCircle,
-    Algorithm,
+    parallel_midpoint_circle::ParallelMidpointCircle, scanline_circle::ScanlineCircle,
+    sitaraman_fill_circle::SitaramanFillCircle, Algorithm,
 };
 
 // ── Benchmark Statistics ──────────────────────────────────────────────────────
@@ -84,6 +84,16 @@ pub fn run_benchmark(radius: i32) -> Vec<(String, BenchmarkStats)> {
         "Sitaraman Fill Circle",
         || {
             let mut algo = Box::new(SitaramanFillCircle::default());
+            algo.radius = radius;
+            algo
+        },
+        ITERATIONS,
+    ));
+
+    results.push(benchmark_algorithm(
+        "Scanline Circle",
+        || {
+            let mut algo = Box::new(ScanlineCircle::default());
             algo.radius = radius;
             algo
         },

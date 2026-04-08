@@ -1,11 +1,14 @@
 pub mod baseline_circle;
 pub mod gap_fill_circle;
+pub mod gap_fill_ellipse;
 pub mod midpoint_circle;
 pub mod midpoint_ellipse;
 pub mod midpoint_line;
 pub mod midpoint_parabola;
 pub mod parallel_midpoint_circle;
+pub mod scanline_circle;
 pub mod sitaraman_fill_circle;
+pub mod virtual_fill_ellipse;
 
 // ── Shared data types ─────────────────────────────────────────────────────────
 

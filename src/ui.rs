@@ -86,7 +86,25 @@ pub fn draw_panel(
             // ── Benchmark results ────────────────────────────────────────
             if let Some(results) = &ui_state.benchmark_results {
                 ui.separator();
-                ui.heading("Benchmark Results (µs)");
+
+                ui.horizontal(|ui| {
+                    ui.heading("Benchmark Results (µs)");
+                    let text = results
+                        .iter()
+                        .map(|(name, s)| {
+                            format!(
+                                "{}\nMin:    {}\nMax:    {}\nAvg:    {}\nMedian: {}",
+                                name, s.min_us, s.max_us, s.avg_us, s.median_us
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n\n");
+
+                    if ui.button("📋 Copy").clicked() {
+                        ui.output_mut(|o| o.copied_text = text);
+                    }
+                });
+
                 egui::ScrollArea::vertical()
                     .max_height(400.0)
                     .show(ui, |ui| {
