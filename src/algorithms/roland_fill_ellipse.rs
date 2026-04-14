@@ -1,6 +1,6 @@
 use super::{Algorithm, Point};
 
-pub struct VirtualFillEllipse {
+pub struct RolandFillEllipse {
     pub center_x: i32,
     pub center_y: i32,
     pub radius_x: i32,
@@ -10,7 +10,7 @@ pub struct VirtualFillEllipse {
     point_rings: Vec<i32>,
 }
 
-impl Default for VirtualFillEllipse {
+impl Default for RolandFillEllipse {
     fn default() -> Self {
         let mut s = Self {
             center_x: 0,
@@ -41,9 +41,9 @@ const PALETTE: [[f32; 3]; 12] = [
     [0.00, 0.50, 1.00], // sky blue
 ];
 
-impl Algorithm for VirtualFillEllipse {
+impl Algorithm for RolandFillEllipse {
     fn name(&self) -> &str {
-        "Virtual Fill Ellipse"
+        "Roland Fill Ellipse"
     }
 
     fn compute(&mut self) {
@@ -116,100 +116,52 @@ impl Algorithm for VirtualFillEllipse {
     }
 }
 
-impl VirtualFillEllipse {
+impl RolandFillEllipse {
     fn compute_ring(&mut self, rx: i32, ry: i32, ring: i32) {
         let (cx, cy) = (self.center_x, self.center_y);
+        let mut x: i64 = 0;
+        let mut y: i64 = ry as i64;
 
-        let mut x = 0i32;
-        let mut y = ry;
+        let rx2: i64 = (rx as i64) * (rx as i64);
+        let ry2: i64 = (ry as i64) * (ry as i64);
+        let two_rx2: i64 = 2 * rx2;
+        let two_ry2: i64 = 2 * ry2;
 
-        // outer radii for gap detection
-        let orx = rx + 1;
-        let ory = ry + 1;
+        let mut px: i64 = 0;
+        let mut py: i64 = two_rx2 * y;
 
-        // inner parameters
-        let mut d1 = (ry * ry) as f64 - (rx * rx * ry) as f64 + 0.25 * (rx * rx) as f64;
-        let mut dx = 2 * ry * ry * x;
-        let mut dy = 2 * rx * rx * y;
+        self.plot_symmetric(cx, cy, x as i32, y as i32, ring);
 
-        // outer parameters
-        let mut od1 = (ory * ory) as f64 - (orx * orx * ory) as f64 + 0.25 * (orx * orx) as f64;
-        let mut odx = 2 * ory * ory * x;
-        let mut ody = 2 * orx * orx * y;
+        let mut p1: i64 = (ry2 as f64 - rx2 as f64 * ry as f64 + 0.25 * rx2 as f64).round() as i64;
 
-        // Region 1
-        while dx < dy {
-            self.plot_symmetric(cx, cy, x, y, ring);
-
-            if d1 < 0.0 {
-                // both would step horizontally
-                x += 1;
-                dx += 2 * ry * ry;
-                d1 += dx as f64 + (ry * ry) as f64;
-
-                // update outer (follows inner)
-                odx += 2 * ory * ory;
-                od1 += odx as f64 + (ory * ory) as f64;
+        while px < py {
+            x += 1;
+            px += two_ry2;
+            if p1 < 0 {
+                p1 += ry2 + px;
             } else {
-                // inner would step diagonally (y-1, x+1)
-                // check the outer before stepping
-                if od1 < 0.0 {
-                    // the outer would still step horizontally -> gap
-                    self.plot_symmetric(cx, cy, x + 1, y, ring);
-                }
-
-                x += 1;
                 y -= 1;
-                dx += 2 * ry * ry;
-                dy -= 2 * rx * rx;
-                d1 += (dx - dy + ry * ry) as f64;
-
-                // update outer (follows inner)
-                odx += 2 * ory * ory;
-                ody -= 2 * orx * orx;
-                od1 += (odx - ody + ory * ory) as f64;
+                py -= two_rx2;
+                p1 += ry2 + px - py;
             }
+            self.plot_symmetric(cx, cy, x as i32, y as i32, ring);
         }
 
-        // Region 2 init
-        let mut d2 = (ry * ry) as f64 * (x as f64 + 0.5).powi(2)
-            + (rx * rx) as f64 * (y - 1) as f64 * (y - 1) as f64
-            - (rx * rx * ry * ry) as f64;
+        let mut p2: f64 = ry2 as f64 * (x as f64 + 0.5) * (x as f64 + 0.5)
+            + rx2 as f64 * (y - 1) as f64 * (y - 1) as f64
+            - rx2 as f64 * ry2 as f64;
 
-        let mut od2 = (ory * ory) as f64 * (x as f64 + 0.5).powi(2)
-            + (orx * orx) as f64 * (y - 1) as f64 * (y - 1) as f64
-            - (orx * orx * ory * ory) as f64;
-
-        // Region 2
-        while y >= 0 {
-            self.plot_symmetric(cx, cy, x, y, ring);
-
-            if d2 > 0.0 {
-                // both would step vertically
-                y -= 1;
-                dy -= 2 * rx * rx;
-                d2 += (rx * rx) as f64 - dy as f64;
-
-                ody -= 2 * orx * orx;
-                od2 += (orx * orx) as f64 - ody as f64;
+        while y > 0 {
+            y -= 1;
+            py -= two_rx2;
+            if p2 > 0.0 {
+                p2 += (rx2 - py) as f64;
             } else {
-                // inner would step diagonally (y-1, x+1)
-                // check the outer before stepping
-                if od2 > 0.0 {
-                    // the outer would still step vertically -> gap
-                    self.plot_symmetric(cx, cy, x, y - 1, ring);
-                }
-
-                y -= 1;
                 x += 1;
-                dx += 2 * ry * ry;
-                dy -= 2 * rx * rx;
-                d2 += (dx - dy + rx * rx) as f64;
-
-                odx += 2 * ory * ory;
-                ody -= 2 * orx * orx;
-                od2 += (odx - ody + orx * orx) as f64;
+                px += two_ry2;
+                p2 += (rx2 - py + px) as f64;
             }
+            self.plot_symmetric(cx, cy, x as i32, y as i32, ring);
         }
     }
 

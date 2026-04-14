@@ -1,6 +1,6 @@
 use super::{Algorithm, Point};
 
-pub struct VirtualFillEllipse {
+pub struct OwnFillEllipse {
     pub center_x: i32,
     pub center_y: i32,
     pub radius_x: i32,
@@ -10,7 +10,7 @@ pub struct VirtualFillEllipse {
     point_rings: Vec<i32>,
 }
 
-impl Default for VirtualFillEllipse {
+impl Default for OwnFillEllipse {
     fn default() -> Self {
         let mut s = Self {
             center_x: 0,
@@ -41,9 +41,9 @@ const PALETTE: [[f32; 3]; 12] = [
     [0.00, 0.50, 1.00], // sky blue
 ];
 
-impl Algorithm for VirtualFillEllipse {
+impl Algorithm for OwnFillEllipse {
     fn name(&self) -> &str {
-        "Virtual Fill Ellipse"
+        "Own Fill Ellipse"
     }
 
     fn compute(&mut self) {
@@ -116,99 +116,71 @@ impl Algorithm for VirtualFillEllipse {
     }
 }
 
-impl VirtualFillEllipse {
+impl OwnFillEllipse {
     fn compute_ring(&mut self, rx: i32, ry: i32, ring: i32) {
         let (cx, cy) = (self.center_x, self.center_y);
 
         let mut x = 0i32;
         let mut y = ry;
 
-        // outer radii for gap detection
-        let orx = rx + 1;
-        let ory = ry + 1;
+        let rx_sq = (rx * rx) as f64;
+        let ry_sq = (ry * ry) as f64;
 
-        // inner parameters
-        let mut d1 = (ry * ry) as f64 - (rx * rx * ry) as f64 + 0.25 * (rx * rx) as f64;
-        let mut dx = 2 * ry * ry * x;
-        let mut dy = 2 * rx * rx * y;
+        // Kezdő döntési paraméter Region 1-ben
+        let mut d1 = ry_sq - (rx_sq * ry as f64) + (0.25 * rx_sq);
+        let mut dx = 2.0 * ry_sq * x as f64;
+        let mut dy = 2.0 * rx_sq * y as f64;
 
-        // outer parameters
-        let mut od1 = (ory * ory) as f64 - (orx * orx * ory) as f64 + 0.25 * (orx * orx) as f64;
-        let mut odx = 2 * ory * ory * x;
-        let mut ody = 2 * orx * orx * y;
-
-        // Region 1
+        // Region 1 (Ahol a vízszintes haladás dominál)
         while dx < dy {
             self.plot_symmetric(cx, cy, x, y, ring);
 
             if d1 < 0.0 {
-                // both would step horizontally
                 x += 1;
-                dx += 2 * ry * ry;
-                d1 += dx as f64 + (ry * ry) as f64;
-
-                // update outer (follows inner)
-                odx += 2 * ory * ory;
-                od1 += odx as f64 + (ory * ory) as f64;
+                dx += 2.0 * ry_sq;
+                d1 += dx + ry_sq;
             } else {
-                // inner would step diagonally (y-1, x+1)
-                // check the outer before stepping
-                if od1 < 0.0 {
-                    // the outer would still step horizontally -> gap
+                // JAVÍTOTT SITARAMAN-FELTÉTEL (Region 1)
+                // Itt d1 = f(x+1, y-0.5). Azt nézzük, hogy f(x+1, y) belefér-e még.
+                // f(x+1, y) = d1 + rx_sq * y - 0.25 * rx_sq
+                if (d1 + rx_sq * y as f64 - 0.25 * rx_sq) < (rx_sq * 0.5) {
                     self.plot_symmetric(cx, cy, x + 1, y, ring);
                 }
 
                 x += 1;
                 y -= 1;
-                dx += 2 * ry * ry;
-                dy -= 2 * rx * rx;
-                d1 += (dx - dy + ry * ry) as f64;
-
-                // update outer (follows inner)
-                odx += 2 * ory * ory;
-                ody -= 2 * orx * orx;
-                od1 += (odx - ody + ory * ory) as f64;
+                dx += 2.0 * ry_sq;
+                dy -= 2.0 * rx_sq;
+                d1 += dx - dy + ry_sq;
             }
         }
 
-        // Region 2 init
-        let mut d2 = (ry * ry) as f64 * (x as f64 + 0.5).powi(2)
-            + (rx * rx) as f64 * (y - 1) as f64 * (y - 1) as f64
-            - (rx * rx * ry * ry) as f64;
+        // Kezdő döntési paraméter Region 2-ben
+        let mut d2 = ry_sq * ((x as f64 + 0.5) * (x as f64 + 0.5))
+            + rx_sq * ((y - 1) as f64 * (y - 1) as f64)
+            - rx_sq * ry_sq;
 
-        let mut od2 = (ory * ory) as f64 * (x as f64 + 0.5).powi(2)
-            + (orx * orx) as f64 * (y - 1) as f64 * (y - 1) as f64
-            - (orx * orx * ory * ory) as f64;
-
-        // Region 2
+        // Region 2 (Ahol a függőleges haladás dominál)
         while y >= 0 {
             self.plot_symmetric(cx, cy, x, y, ring);
 
             if d2 > 0.0 {
-                // both would step vertically
                 y -= 1;
-                dy -= 2 * rx * rx;
-                d2 += (rx * rx) as f64 - dy as f64;
-
-                ody -= 2 * orx * orx;
-                od2 += (orx * orx) as f64 - ody as f64;
+                dy -= 2.0 * rx_sq;
+                d2 += rx_sq - dy;
             } else {
-                // inner would step diagonally (y-1, x+1)
-                // check the outer before stepping
-                if od2 > 0.0 {
-                    // the outer would still step vertically -> gap
+                // JAVÍTOTT SITARAMAN-FELTÉTEL (Region 2)
+                // Itt d2 = f(x+0.5, y-1). Azt nézzük, hogy f(x, y-1) belefér-e még.
+                // f(x, y-1) = d2 + ry_sq * x - 0.25 * ry_sq
+                if (d2 + ry_sq * x as f64 - 0.25 * ry_sq) < (ry_sq * 0.5) {
                     self.plot_symmetric(cx, cy, x, y - 1, ring);
                 }
 
                 y -= 1;
                 x += 1;
-                dx += 2 * ry * ry;
-                dy -= 2 * rx * rx;
-                d2 += (dx - dy + rx * rx) as f64;
-
-                odx += 2 * ory * ory;
-                ody -= 2 * orx * orx;
-                od2 += (odx - ody + orx * orx) as f64;
+                dx += 2.0 * ry_sq;
+                dy -= 2.0 * rx_sq;
+                d2 += dx - dy + rx_sq;
             }
         }
     }

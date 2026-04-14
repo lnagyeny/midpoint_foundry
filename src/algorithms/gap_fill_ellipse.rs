@@ -50,15 +50,12 @@ impl Algorithm for GapFillEllipse {
         self.points.clear();
         self.point_rings.clear();
 
-        // Draw concentric ellipses from the outermost ring inward.
-        // We scale both radii proportionally so the aspect ratio is preserved.
-        let steps = self.radius_x.max(self.radius_y);
-        for ring in 1..=steps {
-            // Scale rx and ry proportionally to the current ring index.
-            let rx = (self.radius_x * ring + steps / 2) / steps;
-            let ry = (self.radius_y * ring + steps / 2) / steps;
+        let max_ry = self.radius_y;
+        for i in 0..=max_ry {
+            let rx = self.radius_x - i;
+            let ry = self.radius_y - i;
             if rx >= 1 && ry >= 1 {
-                self.compute_ring(rx, ry, ring);
+                self.compute_ring(rx, ry, i + 1);
             }
         }
     }
