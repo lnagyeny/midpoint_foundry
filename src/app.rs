@@ -13,7 +13,8 @@ use crate::{
         baseline_circle::BaselineCircle, gap_fill_circle::GapFillCircle,
         gap_fill_ellipse::GapFillEllipse, midpoint_circle::MidpointCircle,
         midpoint_ellipse::MidpointEllipse, midpoint_line::MidpointLine,
-        midpoint_parabola::MidpointParabola, parallel_midpoint_circle::ParallelMidpointCircle,
+        midpoint_parabola::MidpointParabola, own_fill_ellipse::OwnFillEllipse,
+        parallel_midpoint_circle::ParallelMidpointCircle, roland_fill_ellipse::RolandFillEllipse,
         scanline_circle::ScanlineCircle, sitaraman_fill_circle::SitaramanFillCircle,
         virtual_fill_ellipse::VirtualFillEllipse, Algorithm,
     },
@@ -75,6 +76,8 @@ impl AppState {
             Box::new(ScanlineCircle::default()),
             Box::new(GapFillEllipse::default()),
             Box::new(VirtualFillEllipse::default()),
+            Box::new(RolandFillEllipse::default()),
+            Box::new(OwnFillEllipse::default()),
         ];
 
         Self {
