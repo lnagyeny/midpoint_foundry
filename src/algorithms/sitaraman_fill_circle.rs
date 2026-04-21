@@ -7,6 +7,8 @@ pub struct SitaramanFillCircle {
     points: Vec<Point>,
     /// Which concentric ring each point belongs to (1 … radius).
     point_radii: Vec<i32>,
+    /// Starting index of each ring in the points array (0-based).
+    ring_start_indices: Vec<usize>,
 }
 
 impl Default for SitaramanFillCircle {
@@ -17,26 +19,21 @@ impl Default for SitaramanFillCircle {
             radius: 15,
             points: Vec::new(),
             point_radii: Vec::new(),
+            ring_start_indices: Vec::new(),
         };
         s.compute();
         s
     }
 }
 
-// 12-colour vibrant palette, indexed by `ring_radius % 12`.
-const PALETTE: [[f32; 3]; 12] = [
-    [1.00, 0.00, 0.00], // red
-    [0.00, 1.00, 0.00], // green
-    [0.00, 0.00, 1.00], // blue
-    [1.00, 1.00, 0.00], // yellow
-    [1.00, 0.00, 1.00], // magenta
-    [0.00, 1.00, 1.00], // cyan
-    [1.00, 0.50, 0.00], // orange
-    [0.50, 0.00, 1.00], // purple
-    [0.00, 1.00, 0.50], // spring green
-    [1.00, 0.00, 0.50], // rose
-    [0.50, 1.00, 0.00], // lime
-    [0.00, 0.50, 1.00], // sky blue
+const PALETTE: [[f32; 3]; 7] = [
+    [0.00, 0.45, 0.70], // deep blue
+    [0.55, 0.35, 0.85], // purple
+    [0.30, 0.70, 0.20], // green
+    [0.80, 0.75, 0.00], // yellow-olive
+    [0.00, 0.60, 0.50], // teal
+    [0.90, 0.50, 0.00], // orange (not too redish)
+    [0.40, 0.40, 0.40], // neutral gray (good for contrast reference);
 ];
 
 impl Algorithm for SitaramanFillCircle {
@@ -47,7 +44,9 @@ impl Algorithm for SitaramanFillCircle {
     fn compute(&mut self) {
         self.points.clear();
         self.point_radii.clear();
+        self.ring_start_indices.clear();
         for r in 1..=self.radius {
+            self.ring_start_indices.push(self.points.len());
             self.compute_ring(r);
         }
     }
@@ -62,7 +61,7 @@ impl Algorithm for SitaramanFillCircle {
 
     fn point_color_override(&self, index: usize) -> Option<[f32; 3]> {
         let r = *self.point_radii.get(index)? as usize;
-        Some(PALETTE[r % 12])
+        Some(PALETTE[r % 3])
     }
 
     fn draw_ui(&mut self, ui: &mut egui::Ui) -> bool {
@@ -91,6 +90,10 @@ impl Algorithm for SitaramanFillCircle {
             .changed();
 
         changed
+    }
+
+    fn overlay_circle(&self) -> Option<(i32, i32, i32)> {
+        Some((self.center_x, self.center_y, self.radius))
     }
 }
 

@@ -14,7 +14,7 @@ pub mod virtual_fill_ellipse;
 
 // ── Shared data types ─────────────────────────────────────────────────────────
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Hash, Eq, PartialEq)]
 pub struct Point {
     pub x: i32,
     pub y: i32,

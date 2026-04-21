@@ -7,6 +7,8 @@ pub struct GapFillCircle {
     points: Vec<Point>,
     /// Which concentric ring each point belongs to (1 … radius).
     point_radii: Vec<i32>,
+    /// Starting index of each ring in the points array (0-based).
+    ring_start_indices: Vec<usize>,
 }
 
 impl Default for GapFillCircle {
@@ -17,6 +19,7 @@ impl Default for GapFillCircle {
             radius: 15,
             points: Vec::new(),
             point_radii: Vec::new(),
+            ring_start_indices: Vec::new(),
         };
         s.compute();
         s
@@ -24,19 +27,38 @@ impl Default for GapFillCircle {
 }
 
 // 12-colour vibrant palette, indexed by `ring_radius % 12`.
-const PALETTE: [[f32; 3]; 12] = [
-    [1.00, 0.00, 0.00], // red
-    [0.00, 1.00, 0.00], // green
-    [0.00, 0.00, 1.00], // blue
-    [1.00, 1.00, 0.00], // yellow
-    [1.00, 0.00, 1.00], // magenta
-    [0.00, 1.00, 1.00], // cyan
-    [1.00, 0.50, 0.00], // orange
-    [0.50, 0.00, 1.00], // purple
-    [0.00, 1.00, 0.50], // spring green
-    [1.00, 0.00, 0.50], // rose
-    [0.50, 1.00, 0.00], // lime
-    [0.00, 0.50, 1.00], // sky blue
+//const PALETTE: [[f32; 3]; 12] = [
+//    [1.00, 0.00, 0.00], // red
+//    [0.00, 1.00, 0.00], // green
+//    [0.00, 0.00, 1.00], // blue
+//    [1.00, 1.00, 0.00], // yellow
+//    [1.00, 0.00, 1.00], // magenta
+//    [0.00, 1.00, 1.00], // cyan
+//    [1.00, 0.50, 0.00], // orange
+//    [0.50, 0.00, 1.00], // purple
+//    [0.00, 1.00, 0.50], // spring green
+//    [1.00, 0.00, 0.50], // rose
+//    [0.50, 1.00, 0.00], // lime
+//    [0.00, 0.50, 1.00], // sky blue
+//];
+
+//const PALETTE: [[f32; 3]; 6] = [
+//    [0.85, 0.57, 0.00], // harvest gold
+//    [0.45, 0.75, 0.85], // glacier
+//    [0.33, 1.00, 0.33], // alien green
+//    [0.80, 0.72, 0.60], // dark beige
+//    [0.20, 0.60, 0.40], // summer green
+//    [0.85, 0.75, 0.85], // thistle;
+//];
+
+const PALETTE: [[f32; 3]; 7] = [
+    [0.00, 0.45, 0.70], // deep blue
+    [0.55, 0.35, 0.85], // purple
+    [0.30, 0.70, 0.20], // green
+    [0.80, 0.75, 0.00], // yellow-olive
+    [0.00, 0.60, 0.50], // teal
+    [0.90, 0.50, 0.00], // orange (not too redish)
+    [0.40, 0.40, 0.40], // neutral gray (good for contrast reference);
 ];
 
 impl Algorithm for GapFillCircle {
@@ -47,7 +69,9 @@ impl Algorithm for GapFillCircle {
     fn compute(&mut self) {
         self.points.clear();
         self.point_radii.clear();
+        self.ring_start_indices.clear();
         for r in 1..=self.radius {
+            self.ring_start_indices.push(self.points.len());
             self.compute_ring(r);
         }
     }
@@ -62,7 +86,27 @@ impl Algorithm for GapFillCircle {
 
     fn point_color_override(&self, index: usize) -> Option<[f32; 3]> {
         let r = *self.point_radii.get(index)? as usize;
-        Some(PALETTE[r % 12])
+        //Some(PALETTE[r % 12])
+        Some(PALETTE[r % 3])
+    }
+
+    fn cell_info(&self, cx: i32, cy: i32) -> Option<String> {
+        for (i, p) in self.points.iter().enumerate() {
+            if p.x == cx && p.y == cy {
+                let _r = self.point_radii[i] as usize;
+                // Find which ring this point belongs to
+                let ring_index = (1..self.ring_start_indices.len())
+                    .find(|&idx| self.ring_start_indices[idx] > i)
+                    .unwrap_or(self.ring_start_indices.len())
+                    - 1;
+
+                let step_in_ring = i - self.ring_start_indices[ring_index] + 1;
+                let ring_number = ring_index + 1; // Rings are 1-indexed
+
+                return Some(format!("Step {} (ring {})", step_in_ring, ring_number));
+            }
+        }
+        None
     }
 
     fn draw_ui(&mut self, ui: &mut egui::Ui) -> bool {
@@ -91,6 +135,10 @@ impl Algorithm for GapFillCircle {
             .changed();
 
         changed
+    }
+
+    fn overlay_circle(&self) -> Option<(i32, i32, i32)> {
+        Some((self.center_x, self.center_y, self.radius))
     }
 }
 

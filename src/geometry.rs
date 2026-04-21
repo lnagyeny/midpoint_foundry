@@ -50,6 +50,29 @@ pub fn build(
     let imin = (-half) as i32;
     let imax = half as i32;
 
+    // ── 0. Background fill for circle algorithms (white within radius) ────────
+    // Simple approach: fill white circle for any algorithm that looks like a circle
+    if let Some((cx, cy, r)) = algo.overlay_circle() {
+        let r = r as f32;
+        let cx = cx as f32;
+        let cy = cy as f32;
+
+        let start_x = (cx - r).floor() as i32;
+        let end_x = (cx + r).ceil() as i32;
+        let start_y = (cy - r).floor() as i32;
+        let end_y = (cy + r).ceil() as i32;
+
+        for x in start_x..=end_x {
+            for y in start_y..=end_y {
+                let fx = (x as f32 - cx) as f32;
+                let fy = (y as f32 - cy) as f32;
+                if fx * fx + fy * fy <= r * r {
+                    push_quad(&mut quads, x as f32, y as f32, 1.0, 1.0, 1.0, 1.0);
+                }
+            }
+        }
+    }
+
     // ── 1. Algorithm points ───────────────────────────────────────────────────
     let color = algo.color();
     for (i, p) in algo.points().iter().enumerate() {
