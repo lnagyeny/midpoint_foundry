@@ -1,4 +1,5 @@
 use super::{Algorithm, Point};
+use std::collections::{HashMap, HashSet};
 
 pub struct ScanlineCircle {
     pub center_x: i32,
