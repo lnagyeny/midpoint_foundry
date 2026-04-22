@@ -1,16 +1,7 @@
-pub mod baseline_circle;
-pub mod gap_fill_circle;
-pub mod gap_fill_ellipse;
-pub mod midpoint_circle;
-pub mod midpoint_ellipse;
-pub mod midpoint_line;
-pub mod midpoint_parabola;
-pub mod own_fill_ellipse;
-pub mod parallel_midpoint_circle;
-pub mod roland_fill_ellipse;
-pub mod scanline_circle;
-pub mod sitaraman_fill_circle;
-pub mod virtual_fill_ellipse;
+pub mod circle;
+pub mod ellipse;
+pub mod line;
+pub mod parabola;
 
 // ── Shared data types ─────────────────────────────────────────────────────────
 
@@ -61,4 +52,7 @@ pub trait Algorithm: Send + Sync {
     fn cell_info(&self, _cx: i32, _cy: i32) -> Option<String> {
         None
     }
+
+    /// Get the category/shape of this algorithm (e.g., "circle", "ellipse", "line", "parabola").
+    fn category(&self) -> &'static str;
 }

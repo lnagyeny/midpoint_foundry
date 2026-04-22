@@ -1,4 +1,4 @@
-use super::{Algorithm, Point};
+use crate::algorithms::{Algorithm, Point};
 
 pub struct VirtualFillEllipse {
     pub center_x: i32,
@@ -113,6 +113,10 @@ impl Algorithm for VirtualFillEllipse {
         });
 
         changed
+    }
+
+    fn category(&self) -> &'static str {
+        "ellipse"
     }
 }
 

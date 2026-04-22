@@ -1,4 +1,4 @@
-use super::{Algorithm, Point};
+use crate::algorithms::{Algorithm, Point};
 
 pub struct MidpointEllipse {
     pub center_x: i32,
@@ -154,6 +154,10 @@ impl Algorithm for MidpointEllipse {
                 "outside"
             }
         ))
+    }
+
+    fn category(&self) -> &'static str {
+        "ellipse"
     }
 }
 

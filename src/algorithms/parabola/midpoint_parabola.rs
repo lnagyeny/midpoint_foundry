@@ -1,4 +1,4 @@
-use super::{Algorithm, Point};
+use crate::algorithms::{Algorithm, Point};
 
 pub struct MidpointParabola {
     pub center_x: i32,
@@ -131,6 +131,9 @@ impl Algorithm for MidpointParabola {
                 "outside"
             }
         ))
+    }
+    fn category(&self) -> &'static str {
+        "parabola"
     }
 }
 

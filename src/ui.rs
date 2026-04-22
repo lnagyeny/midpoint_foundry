@@ -7,6 +7,7 @@ use crate::benchmark::{run_benchmark, BenchmarkStats};
 pub struct UiState {
     pub benchmark_radius: i32,
     pub benchmark_results: Option<Vec<(String, BenchmarkStats)>>,
+    pub selected_category: String,
 }
 
 // ── UI Panel Drawing ─────────────────────────────────────────────────────────
@@ -31,17 +32,57 @@ pub fn draw_panel(
             ui.heading("Algorithm Control");
             ui.separator();
 
+            // ── Category selector ─────────────────────────────────────────
+            let categories: Vec<&str> = {
+                let mut cats: Vec<&str> = algorithms.iter().map(|a| a.category()).collect();
+                cats.sort();
+                cats.dedup();
+                cats
+            };
+
+            if ui_state.selected_category.is_empty() {
+                ui_state.selected_category = categories[0].to_owned();
+            }
+
+            egui::ComboBox::from_label("Category")
+                .selected_text(&ui_state.selected_category)
+                .show_ui(ui, |ui| {
+                    for cat in &categories {
+                        if ui
+                            .selectable_value(
+                                &mut ui_state.selected_category,
+                                cat.to_string(),
+                                *cat,
+                            )
+                            .changed()
+                        {
+                            if let Some(idx) = algorithms
+                                .iter()
+                                .position(|a| a.category() == ui_state.selected_category)
+                            {
+                                *selected = idx;
+                                algorithms[*selected].compute();
+                            }
+                        }
+                    }
+                });
+
             // ── Algorithm selector ────────────────────────────────────────
-            // Collect owned strings so the Vec doesn't borrow self.algorithms
-            // while we also need &mut self.selected inside the combo closure.
-            let names: Vec<String> = algorithms.iter().map(|a| a.name().to_owned()).collect();
+            let filtered: Vec<(usize, String)> = algorithms
+                .iter()
+                .enumerate()
+                .filter(|(_, a)| a.category() == ui_state.selected_category)
+                .map(|(i, a)| (i, a.name().to_owned()))
+                .collect();
+
+            let current_name = algorithms[*selected].name().to_owned();
             let prev = *selected;
 
             egui::ComboBox::from_label("Algorithm")
-                .selected_text(&names[*selected])
+                .selected_text(&current_name)
                 .show_ui(ui, |ui| {
-                    for (i, name) in names.iter().enumerate() {
-                        ui.selectable_value(selected, i, name.as_str());
+                    for (i, name) in &filtered {
+                        ui.selectable_value(selected, *i, name.as_str());
                     }
                 });
 

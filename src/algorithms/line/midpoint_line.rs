@@ -1,4 +1,4 @@
-use super::{Algorithm, Point};
+use crate::algorithms::{Algorithm, Point};
 
 pub struct MidpointLine {
     pub x0: i32,
@@ -103,5 +103,8 @@ impl Algorithm for MidpointLine {
         });
 
         changed
+    }
+    fn category(&self) -> &'static str {
+        "line"
     }
 }

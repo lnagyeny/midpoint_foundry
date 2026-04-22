@@ -1,10 +1,11 @@
 use std::time::Instant;
 
 use crate::algorithms::{
-    baseline_circle::BaselineCircle, gap_fill_circle::GapFillCircle,
-    midpoint_circle::MidpointCircle, midpoint_line::MidpointLine,
-    parallel_midpoint_circle::ParallelMidpointCircle, scanline_circle::ScanlineCircle,
-    sitaraman_fill_circle::SitaramanFillCircle, Algorithm,
+    circle::baseline_circle::BaselineCircle, circle::gap_fill_circle::GapFillCircle,
+    circle::midpoint_circle::MidpointCircle,
+    circle::parallel_midpoint_circle::ParallelMidpointCircle,
+    circle::scanline_circle::ScanlineCircle, circle::sitaraman_fill_circle::SitaramanFillCircle,
+    line::midpoint_line::MidpointLine, Algorithm,
 };
 
 // ── Benchmark Statistics ──────────────────────────────────────────────────────
@@ -54,7 +55,7 @@ pub fn run_benchmark(radius: i32) -> Vec<(String, BenchmarkStats)> {
         "Baseline Circle",
         || {
             let mut algo = Box::new(BaselineCircle::default());
-            algo.radius = radius;
+            algo.base.radius = radius;
             algo
         },
         ITERATIONS,
@@ -64,7 +65,7 @@ pub fn run_benchmark(radius: i32) -> Vec<(String, BenchmarkStats)> {
         "Midpoint Circle",
         || {
             let mut algo = Box::new(MidpointCircle::default());
-            algo.radius = radius;
+            algo.base.radius = radius;
             algo
         },
         ITERATIONS,
@@ -74,7 +75,7 @@ pub fn run_benchmark(radius: i32) -> Vec<(String, BenchmarkStats)> {
         "Gap-Fill Circle",
         || {
             let mut algo = Box::new(GapFillCircle::default());
-            algo.radius = radius;
+            algo.base.radius = radius;
             algo
         },
         ITERATIONS,
@@ -84,7 +85,7 @@ pub fn run_benchmark(radius: i32) -> Vec<(String, BenchmarkStats)> {
         "Sitaraman Fill Circle",
         || {
             let mut algo = Box::new(SitaramanFillCircle::default());
-            algo.radius = radius;
+            algo.base.radius = radius;
             algo
         },
         ITERATIONS,
@@ -94,7 +95,7 @@ pub fn run_benchmark(radius: i32) -> Vec<(String, BenchmarkStats)> {
         "Scanline Circle",
         || {
             let mut algo = Box::new(ScanlineCircle::default());
-            algo.radius = radius;
+            algo.base.radius = radius;
             algo
         },
         ITERATIONS,
@@ -110,7 +111,7 @@ pub fn run_benchmark(radius: i32) -> Vec<(String, BenchmarkStats)> {
         "Parallel Midpoint Circle",
         || {
             let mut algo = Box::new(ParallelMidpointCircle::default());
-            algo.radius = radius;
+            algo.base.radius = radius;
             algo
         },
         ITERATIONS,
