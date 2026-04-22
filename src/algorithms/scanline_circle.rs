@@ -1,5 +1,6 @@
 use super::{Algorithm, Point};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
+use std::sync::RwLock;
 
 pub struct ScanlineCircle {
     pub center_x: i32,
@@ -7,6 +8,8 @@ pub struct ScanlineCircle {
     pub radius: i32,
     pub show_smooth_overlay: bool,
     points: Vec<Point>,
+    pub show_duplicates: bool,
+    duplicate_cache: RwLock<Option<HashSet<(i32, i32)>>>,
 }
 
 impl Default for ScanlineCircle {
@@ -17,6 +20,8 @@ impl Default for ScanlineCircle {
             radius: 15,
             show_smooth_overlay: false,
             points: Vec::new(),
+            show_duplicates: false,
+            duplicate_cache: RwLock::new(None),
         };
         s.compute();
         s
@@ -62,6 +67,32 @@ impl Algorithm for ScanlineCircle {
         [0.0, 0.78, 1.0]
     }
 
+    fn point_color_override(&self, i: usize) -> Option<[f32; 3]> {
+        if !self.show_duplicates {
+            return None;
+        }
+        // Lazy init
+        if self.duplicate_cache.read().unwrap().is_none() {
+            let mut seen = HashSet::new();
+            let mut dupes = HashSet::new();
+            for p in &self.points {
+                if !seen.insert((p.x, p.y)) {
+                    dupes.insert((p.x, p.y));
+                }
+            }
+            *self.duplicate_cache.write().unwrap() = Some(dupes);
+        }
+
+        let cache = self.duplicate_cache.read().unwrap();
+        let dupes = cache.as_ref().unwrap();
+        let p = &self.points[i];
+        if dupes.contains(&(p.x, p.y)) {
+            Some([1.0, 0.0, 0.0])
+        } else {
+            None
+        }
+    }
+
     fn draw_ui(&mut self, ui: &mut egui::Ui) -> bool {
         let mut changed = false;
 
@@ -92,6 +123,13 @@ impl Algorithm for ScanlineCircle {
             "Draw analytic circle overlay",
         );
 
+        changed |= ui
+            .checkbox(&mut self.show_duplicates, "Highlight duplicates")
+            .changed();
+
+        if changed {
+            *self.duplicate_cache.write().unwrap() = None; // cache törlése
+        }
         changed
     }
 

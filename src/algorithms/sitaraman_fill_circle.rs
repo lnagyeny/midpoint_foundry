@@ -1,4 +1,6 @@
 use super::{Algorithm, Point};
+use std::collections::HashSet;
+use std::sync::RwLock;
 
 pub struct SitaramanFillCircle {
     pub center_x: i32,
@@ -9,6 +11,8 @@ pub struct SitaramanFillCircle {
     point_radii: Vec<i32>,
     /// Starting index of each ring in the points array (0-based).
     ring_start_indices: Vec<usize>,
+    pub show_duplicates: bool,
+    duplicate_cache: RwLock<Option<HashSet<(i32, i32)>>>,
 }
 
 impl Default for SitaramanFillCircle {
@@ -20,6 +24,8 @@ impl Default for SitaramanFillCircle {
             points: Vec::new(),
             point_radii: Vec::new(),
             ring_start_indices: Vec::new(),
+            show_duplicates: false,
+            duplicate_cache: RwLock::new(None),
         };
         s.compute();
         s
@@ -59,9 +65,32 @@ impl Algorithm for SitaramanFillCircle {
         [0.0, 0.5, 1.0]
     }
 
-    fn point_color_override(&self, index: usize) -> Option<[f32; 3]> {
-        let r = *self.point_radii.get(index)? as usize;
-        Some(PALETTE[r % 3])
+    fn point_color_override(&self, i: usize) -> Option<[f32; 3]> {
+        if !self.show_duplicates {
+            let r = *self.point_radii.get(i)? as usize;
+            return Some(PALETTE[r % 3]);
+        }
+        // Lazy init for duplicates
+        if self.duplicate_cache.read().unwrap().is_none() {
+            let mut seen = HashSet::new();
+            let mut dupes = HashSet::new();
+            for p in &self.points {
+                if !seen.insert((p.x, p.y)) {
+                    dupes.insert((p.x, p.y));
+                }
+            }
+            *self.duplicate_cache.write().unwrap() = Some(dupes);
+        }
+
+        let cache = self.duplicate_cache.read().unwrap();
+        let dupes = cache.as_ref().unwrap();
+        let p = &self.points[i];
+        if dupes.contains(&(p.x, p.y)) {
+            Some([1.0, 0.0, 0.0])
+        } else {
+            let r = *self.point_radii.get(i)? as usize;
+            Some(PALETTE[r % 3])
+        }
     }
 
     fn draw_ui(&mut self, ui: &mut egui::Ui) -> bool {
@@ -88,6 +117,17 @@ impl Algorithm for SitaramanFillCircle {
         changed |= ui
             .add(egui::Slider::new(&mut self.radius, 1..=100).text("Radius"))
             .changed();
+
+        changed |= ui
+            .add(egui::Checkbox::new(
+                &mut self.show_duplicates,
+                "Show Duplicates",
+            ))
+            .changed();
+
+        if changed {
+            *self.duplicate_cache.write().unwrap() = None; // cache törlése
+        }
 
         changed
     }
