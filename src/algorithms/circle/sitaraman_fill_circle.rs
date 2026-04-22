@@ -1,6 +1,5 @@
 use super::super::{Algorithm, Point};
-use super::circle_base::CircleBase;
-use std::collections::HashSet;
+use super::circle_base::{CircleBase, PALETTE};
 
 pub struct SitaramanFillCircle {
     pub base: CircleBase,
@@ -21,16 +20,6 @@ impl Default for SitaramanFillCircle {
         s
     }
 }
-
-const PALETTE: [[f32; 3]; 7] = [
-    [0.00, 0.45, 0.70], // deep blue
-    [0.55, 0.35, 0.85], // purple
-    [0.30, 0.70, 0.20], // green
-    [0.80, 0.75, 0.00], // yellow-olive
-    [0.00, 0.60, 0.50], // teal
-    [0.90, 0.50, 0.00], // orange (not too redish)
-    [0.40, 0.40, 0.40], // neutral gray (good for contrast reference);
-];
 
 impl Algorithm for SitaramanFillCircle {
     fn name(&self) -> &str {
@@ -56,47 +45,15 @@ impl Algorithm for SitaramanFillCircle {
     }
 
     fn point_color_override(&self, i: usize) -> Option<[f32; 3]> {
-        if !self.base.show_duplicates {
+        let ring_color = {
             let r = *self.point_radii.get(i)? as usize;
-            return Some(PALETTE[r % 3]);
-        }
-        // Lazy init for duplicates
-        if self.base.duplicate_cache.read().unwrap().is_none() {
-            let mut seen = HashSet::new();
-            let mut dupes = HashSet::new();
-            for p in &self.base.points {
-                if !seen.insert((p.x, p.y)) {
-                    dupes.insert((p.x, p.y));
-                }
-            }
-            *self.base.duplicate_cache.write().unwrap() = Some(dupes);
-        }
-
-        let cache = self.base.duplicate_cache.read().unwrap();
-        let dupes = cache.as_ref().unwrap();
-        let p = &self.base.points[i];
-        if dupes.contains(&(p.x, p.y)) {
-            Some([1.0, 0.0, 0.0])
-        } else {
-            let r = *self.point_radii.get(i)? as usize;
-            Some(PALETTE[r % 3])
-        }
+            Some(PALETTE[r % PALETTE.len()])
+        };
+        self.base.duplicate_color(i, ring_color)
     }
 
     fn draw_ui(&mut self, ui: &mut egui::Ui) -> bool {
-        let mut changed = self.base.draw_ui_base(ui);
-
-        changed |= ui
-            .add(egui::Checkbox::new(
-                &mut self.base.show_duplicates,
-                "Show Duplicates",
-            ))
-            .changed();
-
-        if changed {
-            *self.base.duplicate_cache.write().unwrap() = None; // cache törlése
-        }
-        changed
+        self.base.draw_ui_with_duplicates(ui)
     }
 
     fn category(&self) -> &'static str {
@@ -104,7 +61,7 @@ impl Algorithm for SitaramanFillCircle {
     }
 
     fn overlay_circle(&self) -> Option<(i32, i32, i32)> {
-        Some((self.base.center_x, self.base.center_y, self.base.radius))
+        self.base.overlay_circle_base()
     }
 }
 
