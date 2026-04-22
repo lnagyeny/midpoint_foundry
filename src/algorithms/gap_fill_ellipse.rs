@@ -1,4 +1,6 @@
 use super::{Algorithm, Point};
+use std::collections::HashSet;
+use std::sync::RwLock;
 
 pub struct GapFillEllipse {
     pub center_x: i32,
@@ -8,6 +10,8 @@ pub struct GapFillEllipse {
     points: Vec<Point>,
     /// Which concentric ring each point belongs to (1 … radius_x or radius_y).
     point_rings: Vec<i32>,
+    pub show_duplicates: bool,
+    duplicate_cache: RwLock<Option<HashSet<(i32, i32)>>>,
 }
 
 impl Default for GapFillEllipse {
@@ -19,6 +23,8 @@ impl Default for GapFillEllipse {
             radius_y: 20,
             points: Vec::new(),
             point_rings: Vec::new(),
+            show_duplicates: false,
+            duplicate_cache: RwLock::new(None),
         };
         s.compute();
         s
@@ -26,19 +32,29 @@ impl Default for GapFillEllipse {
 }
 
 // 12-colour vibrant palette, indexed by `ring % 12`.
-const PALETTE: [[f32; 3]; 12] = [
-    [1.00, 0.00, 0.00], // red
-    [0.00, 1.00, 0.00], // green
-    [0.00, 0.00, 1.00], // blue
-    [1.00, 1.00, 0.00], // yellow
-    [1.00, 0.00, 1.00], // magenta
-    [0.00, 1.00, 1.00], // cyan
-    [1.00, 0.50, 0.00], // orange
-    [0.50, 0.00, 1.00], // purple
-    [0.00, 1.00, 0.50], // spring green
-    [1.00, 0.00, 0.50], // rose
-    [0.50, 1.00, 0.00], // lime
-    [0.00, 0.50, 1.00], // sky blue
+//const PALETTE: [[f32; 3]; 12] = [
+//    [1.00, 0.00, 0.00], // red
+//    [0.00, 1.00, 0.00], // green
+//    [0.00, 0.00, 1.00], // blue
+//    [1.00, 1.00, 0.00], // yellow
+//    [1.00, 0.00, 1.00], // magenta
+//    [0.00, 1.00, 1.00], // cyan
+//    [1.00, 0.50, 0.00], // orange
+//    [0.50, 0.00, 1.00], // purple
+//    [0.00, 1.00, 0.50], // spring green
+//    [1.00, 0.00, 0.50], // rose
+//    [0.50, 1.00, 0.00], // lime
+//    [0.00, 0.50, 1.00], // sky blue
+//];
+
+const PALETTE: [[f32; 3]; 7] = [
+    [0.00, 0.45, 0.70], // deep blue
+    [0.55, 0.35, 0.85], // purple
+    [0.30, 0.70, 0.20], // green
+    [0.80, 0.75, 0.00], // yellow-olive
+    [0.00, 0.60, 0.50], // teal
+    [0.90, 0.50, 0.00], // orange (not too redish)
+    [0.40, 0.40, 0.40], // neutral gray (good for contrast reference);
 ];
 
 impl Algorithm for GapFillEllipse {
@@ -68,9 +84,32 @@ impl Algorithm for GapFillEllipse {
         [0.2, 0.2, 0.38]
     }
 
-    fn point_color_override(&self, index: usize) -> Option<[f32; 3]> {
-        let r = *self.point_rings.get(index)? as usize;
-        Some(PALETTE[r % 12])
+    fn point_color_override(&self, i: usize) -> Option<[f32; 3]> {
+        if !self.show_duplicates {
+            let r = *self.point_rings.get(i)? as usize;
+            return Some(PALETTE[r % 3]);
+        }
+        // Lazy init for duplicates
+        if self.duplicate_cache.read().unwrap().is_none() {
+            let mut seen = HashSet::new();
+            let mut dupes = HashSet::new();
+            for p in &self.points {
+                if !seen.insert((p.x, p.y)) {
+                    dupes.insert((p.x, p.y));
+                }
+            }
+            *self.duplicate_cache.write().unwrap() = Some(dupes);
+        }
+
+        let cache = self.duplicate_cache.read().unwrap();
+        let dupes = cache.as_ref().unwrap();
+        let p = &self.points[i];
+        if dupes.contains(&(p.x, p.y)) {
+            Some([1.0, 0.0, 0.0])
+        } else {
+            let r = *self.point_rings.get(i)? as usize;
+            Some(PALETTE[r % 3])
+        }
     }
 
     fn draw_ui(&mut self, ui: &mut egui::Ui) -> bool {
@@ -111,6 +150,17 @@ impl Algorithm for GapFillEllipse {
                 )
                 .changed();
         });
+
+        changed |= ui
+            .add(egui::Checkbox::new(
+                &mut self.show_duplicates,
+                "Show Duplicates",
+            ))
+            .changed();
+
+        if changed {
+            *self.duplicate_cache.write().unwrap() = None; // cache törlése
+        }
 
         changed
     }
