@@ -1,11 +1,13 @@
 use std::sync::Arc;
+#[cfg(target_os = "windows")]
+use winit::platform::windows::WindowAttributesExtWindows;
 
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
     event::WindowEvent,
     event_loop::ActiveEventLoop,
-    window::{Window, WindowId},
+    window::{Icon, Window, WindowId},
 };
 
 use crate::{
@@ -156,10 +158,21 @@ impl ApplicationHandler for Application {
             return;
         }
 
+        fn load_icon() -> Option<Icon> {
+            let bytes = include_bytes!("../assets/icon.png");
+            let img = image::load_from_memory(bytes).ok()?.into_rgba8();
+            let (w, h) = img.dimensions();
+            Icon::from_rgba(img.into_raw(), w, h).ok()
+        }
+
         let attrs = Window::default_attributes()
             .with_title("Midpoint Foundry")
+            .with_window_icon(load_icon())
             .with_inner_size(PhysicalSize::new(WINDOW_W, WINDOW_H))
             .with_resizable(true);
+
+        #[cfg(target_os = "windows")]
+        let attrs = attrs.with_taskbar_icon(load_icon());
 
         let window = Arc::new(
             event_loop
