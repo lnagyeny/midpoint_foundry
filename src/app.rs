@@ -12,13 +12,15 @@ use winit::{
 
 use crate::{
     algorithms::{
-        baseline_circle::BaselineCircle, gap_fill_circle::GapFillCircle,
-        gap_fill_ellipse::GapFillEllipse, midpoint_circle::MidpointCircle,
-        midpoint_ellipse::MidpointEllipse, midpoint_line::MidpointLine,
-        midpoint_parabola::MidpointParabola, own_fill_ellipse::OwnFillEllipse,
-        parallel_midpoint_circle::ParallelMidpointCircle, roland_fill_ellipse::RolandFillEllipse,
-        scanline_circle::ScanlineCircle, sitaraman_fill_circle::SitaramanFillCircle,
-        virtual_fill_ellipse::VirtualFillEllipse, Algorithm,
+        circle::baseline_circle::BaselineCircle, circle::gap_fill_circle::GapFillCircle,
+        circle::midpoint_circle::MidpointCircle,
+        circle::parallel_midpoint_circle::ParallelMidpointCircle,
+        circle::scanline_circle::ScanlineCircle,
+        circle::sitaraman_fill_circle::SitaramanFillCircle,
+        ellipse::gap_fill_ellipse::GapFillEllipse, ellipse::midpoint_ellipse::MidpointEllipse,
+        ellipse::own_fill_ellipse::OwnFillEllipse, ellipse::roland_fill_ellipse::RolandFillEllipse,
+        ellipse::virtual_fill_ellipse::VirtualFillEllipse, line::midpoint_line::MidpointLine,
+        parabola::midpoint_parabola::MidpointParabola, Algorithm,
     },
     geometry,
     input::InputState,

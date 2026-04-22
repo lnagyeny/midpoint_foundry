@@ -1,6 +1,6 @@
-use super::{Algorithm, Point};
+use crate::algorithms::{Algorithm, Point};
 
-pub struct RolandFillEllipse {
+pub struct OwnFillEllipse {
     pub center_x: i32,
     pub center_y: i32,
     pub radius_x: i32,
@@ -10,7 +10,7 @@ pub struct RolandFillEllipse {
     point_rings: Vec<i32>,
 }
 
-impl Default for RolandFillEllipse {
+impl Default for OwnFillEllipse {
     fn default() -> Self {
         let mut s = Self {
             center_x: 0,
@@ -41,9 +41,9 @@ const PALETTE: [[f32; 3]; 12] = [
     [0.00, 0.50, 1.00], // sky blue
 ];
 
-impl Algorithm for RolandFillEllipse {
+impl Algorithm for OwnFillEllipse {
     fn name(&self) -> &str {
-        "Roland Fill Ellipse"
+        "Own Fill Ellipse"
     }
 
     fn compute(&mut self) {
@@ -114,54 +114,78 @@ impl Algorithm for RolandFillEllipse {
 
         changed
     }
+
+    fn category(&self) -> &'static str {
+        "ellipse"
+    }
 }
 
-impl RolandFillEllipse {
+impl OwnFillEllipse {
     fn compute_ring(&mut self, rx: i32, ry: i32, ring: i32) {
         let (cx, cy) = (self.center_x, self.center_y);
-        let mut x: i64 = 0;
-        let mut y: i64 = ry as i64;
 
-        let rx2: i64 = (rx as i64) * (rx as i64);
-        let ry2: i64 = (ry as i64) * (ry as i64);
-        let two_rx2: i64 = 2 * rx2;
-        let two_ry2: i64 = 2 * ry2;
+        let mut x = 0i32;
+        let mut y = ry;
 
-        let mut px: i64 = 0;
-        let mut py: i64 = two_rx2 * y;
+        let rx_sq = (rx * rx) as f64;
+        let ry_sq = (ry * ry) as f64;
 
-        self.plot_symmetric(cx, cy, x as i32, y as i32, ring);
+        // Kezdő döntési paraméter Region 1-ben
+        let mut d1 = ry_sq - (rx_sq * ry as f64) + (0.25 * rx_sq);
+        let mut dx = 2.0 * ry_sq * x as f64;
+        let mut dy = 2.0 * rx_sq * y as f64;
 
-        let mut p1: i64 = (ry2 as f64 - rx2 as f64 * ry as f64 + 0.25 * rx2 as f64).round() as i64;
+        // Region 1 (Ahol a vízszintes haladás dominál)
+        while dx < dy {
+            self.plot_symmetric(cx, cy, x, y, ring);
 
-        while px < py {
-            x += 1;
-            px += two_ry2;
-            if p1 < 0 {
-                p1 += ry2 + px;
+            if d1 < 0.0 {
+                x += 1;
+                dx += 2.0 * ry_sq;
+                d1 += dx + ry_sq;
             } else {
+                // JAVÍTOTT SITARAMAN-FELTÉTEL (Region 1)
+                // Itt d1 = f(x+1, y-0.5). Azt nézzük, hogy f(x+1, y) belefér-e még.
+                // f(x+1, y) = d1 + rx_sq * y - 0.25 * rx_sq
+                if (d1 + rx_sq * y as f64 - 0.25 * rx_sq) < (rx_sq * 0.5) {
+                    self.plot_symmetric(cx, cy, x + 1, y, ring);
+                }
+
+                x += 1;
                 y -= 1;
-                py -= two_rx2;
-                p1 += ry2 + px - py;
+                dx += 2.0 * ry_sq;
+                dy -= 2.0 * rx_sq;
+                d1 += dx - dy + ry_sq;
             }
-            self.plot_symmetric(cx, cy, x as i32, y as i32, ring);
         }
 
-        let mut p2: f64 = ry2 as f64 * (x as f64 + 0.5) * (x as f64 + 0.5)
-            + rx2 as f64 * (y - 1) as f64 * (y - 1) as f64
-            - rx2 as f64 * ry2 as f64;
+        // Kezdő döntési paraméter Region 2-ben
+        let mut d2 = ry_sq * ((x as f64 + 0.5) * (x as f64 + 0.5))
+            + rx_sq * ((y - 1) as f64 * (y - 1) as f64)
+            - rx_sq * ry_sq;
 
-        while y > 0 {
-            y -= 1;
-            py -= two_rx2;
-            if p2 > 0.0 {
-                p2 += (rx2 - py) as f64;
+        // Region 2 (Ahol a függőleges haladás dominál)
+        while y >= 0 {
+            self.plot_symmetric(cx, cy, x, y, ring);
+
+            if d2 > 0.0 {
+                y -= 1;
+                dy -= 2.0 * rx_sq;
+                d2 += rx_sq - dy;
             } else {
+                // JAVÍTOTT SITARAMAN-FELTÉTEL (Region 2)
+                // Itt d2 = f(x+0.5, y-1). Azt nézzük, hogy f(x, y-1) belefér-e még.
+                // f(x, y-1) = d2 + ry_sq * x - 0.25 * ry_sq
+                if (d2 + ry_sq * x as f64 - 0.25 * ry_sq) < (ry_sq * 0.5) {
+                    self.plot_symmetric(cx, cy, x, y - 1, ring);
+                }
+
+                y -= 1;
                 x += 1;
-                px += two_ry2;
-                p2 += (rx2 - py + px) as f64;
+                dx += 2.0 * ry_sq;
+                dy -= 2.0 * rx_sq;
+                d2 += dx - dy + rx_sq;
             }
-            self.plot_symmetric(cx, cy, x as i32, y as i32, ring);
         }
     }
 

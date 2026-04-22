@@ -1,59 +1,35 @@
-use super::{Algorithm, Point};
+use crate::algorithms::Point;
+use egui::Ui;
+use std::collections::HashSet;
+use std::sync::RwLock;
 
-pub struct MidpointCircle {
+/// Base struct containing common functionality for circle algorithms
+pub struct CircleBase {
     pub center_x: i32,
     pub center_y: i32,
     pub radius: i32,
     pub show_smooth_overlay: bool,
-    points: Vec<Point>,
+    pub points: Vec<Point>,
+    pub show_duplicates: bool,
+    pub duplicate_cache: RwLock<Option<HashSet<(i32, i32)>>>,
 }
 
-impl Default for MidpointCircle {
-    fn default() -> Self {
-        let mut s = Self {
-            center_x: 0,
-            center_y: 0,
-            radius: 15,
+impl CircleBase {
+    /// Create a new CircleBase with default values
+    pub fn new(center_x: i32, center_y: i32, radius: i32) -> Self {
+        Self {
+            center_x,
+            center_y,
+            radius,
             show_smooth_overlay: false,
             points: Vec::new(),
-        };
-        s.compute();
-        s
-    }
-}
-
-impl Algorithm for MidpointCircle {
-    fn name(&self) -> &str {
-        "Midpoint Circle"
-    }
-
-    fn compute(&mut self) {
-        self.points.clear();
-        let mut x = 0i32;
-        let mut y = self.radius;
-        let mut d = 1 - self.radius;
-
-        while x <= y {
-            self.plot_octants(x, y);
-            if d < 0 {
-                d += 2 * x + 3;
-            } else {
-                d += 2 * (x - y) + 5;
-                y -= 1;
-            }
-            x += 1;
+            show_duplicates: false,
+            duplicate_cache: RwLock::new(None),
         }
     }
 
-    fn points(&self) -> &[Point] {
-        &self.points
-    }
-
-    fn color(&self) -> [f32; 3] {
-        [0.0, 0.78, 1.0]
-    }
-
-    fn draw_ui(&mut self, ui: &mut egui::Ui) -> bool {
+    /// Common draw_ui implementation for circle parameters
+    pub fn draw_ui_base(&mut self, ui: &mut Ui) -> bool {
         let mut changed = false;
 
         ui.label("Center");
@@ -86,7 +62,8 @@ impl Algorithm for MidpointCircle {
         changed
     }
 
-    fn overlay_circle(&self) -> Option<(i32, i32, i32)> {
+    /// Common overlay_circle implementation
+    pub fn overlay_circle_base(&self) -> Option<(i32, i32, i32)> {
         if self.show_smooth_overlay {
             Some((self.center_x, self.center_y, self.radius))
         } else {
@@ -94,7 +71,8 @@ impl Algorithm for MidpointCircle {
         }
     }
 
-    fn cell_info(&self, cx: i32, cy: i32) -> Option<String> {
+    /// Common cell_info implementation
+    pub fn cell_info_base(&self, cx: i32, cy: i32) -> Option<String> {
         let d = self.decision_parameter(cx, cy);
         Some(format!(
             "x²+y²−r²  =  {d}\n({}  circle)",
@@ -106,27 +84,6 @@ impl Algorithm for MidpointCircle {
                 "outside"
             }
         ))
-    }
-}
-
-impl MidpointCircle {
-    fn plot_octants(&mut self, x: i32, y: i32) {
-        let (cx, cy) = (self.center_x, self.center_y);
-        for &(dx, dy) in &[
-            (x, y),
-            (-x, y),
-            (x, -y),
-            (-x, -y),
-            (y, x),
-            (-y, x),
-            (y, -x),
-            (-y, -x),
-        ] {
-            self.points.push(Point {
-                x: cx + dx,
-                y: cy + dy,
-            });
-        }
     }
 
     /// Implicit circle equation: negative ⟹ inside, zero ⟹ on, positive ⟹ outside.
