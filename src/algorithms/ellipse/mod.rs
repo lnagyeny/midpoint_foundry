@@ -1,3 +1,4 @@
+pub mod ellipse_base;
 pub mod gap_fill_ellipse;
 pub mod midpoint_ellipse;
 pub mod own_fill_ellipse;

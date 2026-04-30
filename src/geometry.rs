@@ -72,7 +72,28 @@ pub fn build(
             }
         }
     }
+    // ── 0b. Background fill for ellipse algorithms ────────────────────────────
+    if let Some((cx, cy, rx, ry)) = algo.overlay_ellipse() {
+        let cx = cx as f32;
+        let cy = cy as f32;
+        let a = rx as f32;
+        let b = ry as f32;
 
+        let start_x = (cx - a).floor() as i32;
+        let end_x = (cx + a).ceil() as i32;
+        let start_y = (cy - b).floor() as i32;
+        let end_y = (cy + b).ceil() as i32;
+
+        for x in start_x..=end_x {
+            for y in start_y..=end_y {
+                let fx = (x as f32 - cx) / a;
+                let fy = (y as f32 - cy) / b;
+                if fx * fx + fy * fy <= 1.0 {
+                    push_quad(&mut quads, x as f32, y as f32, 1.0, 1.0, 1.0, 1.0);
+                }
+            }
+        }
+    }
     // ── 1. Algorithm points ───────────────────────────────────────────────────
     let color = algo.color();
     for (i, p) in algo.points().iter().enumerate() {
