@@ -12,12 +12,13 @@ use winit::{
 
 use crate::{
     algorithms::{
-        circle::baseline_circle::BaselineCircle, circle::gap_fill_circle::GapFillCircle,
-        circle::midpoint_circle::MidpointCircle,
+        circle::baseline_circle::BaselineCircle, circle::enhanced_fill_circle::EnhancedFillCircle,
+        circle::gap_fill_circle::GapFillCircle, circle::midpoint_circle::MidpointCircle,
         circle::parallel_midpoint_circle::ParallelMidpointCircle,
         circle::scanline_circle::ScanlineCircle,
         circle::sitaraman_fill_circle::SitaramanFillCircle,
         ellipse::gap_fill_ellipse::GapFillEllipse, ellipse::midpoint_ellipse::MidpointEllipse,
+        ellipse::own_decision_ellipse::OwnDecisionEllipse,
         ellipse::own_fill_ellipse::OwnFillEllipse, ellipse::roland_fill_ellipse::RolandFillEllipse,
         ellipse::virtual_fill_ellipse::VirtualFillEllipse, line::midpoint_line::MidpointLine,
         parabola::midpoint_parabola::MidpointParabola, Algorithm,
@@ -77,11 +78,13 @@ impl AppState {
             Box::new(MidpointEllipse::default()),
             Box::new(ParallelMidpointCircle::default()),
             Box::new(SitaramanFillCircle::default()),
+            Box::new(EnhancedFillCircle::default()),
             Box::new(ScanlineCircle::default()),
             Box::new(GapFillEllipse::default()),
             Box::new(VirtualFillEllipse::default()),
             Box::new(RolandFillEllipse::default()),
             Box::new(OwnFillEllipse::default()),
+            Box::new(OwnDecisionEllipse::default()),
         ];
 
         Self {

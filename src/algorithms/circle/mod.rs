@@ -1,5 +1,6 @@
 pub mod baseline_circle;
 pub mod circle_base;
+pub mod enhanced_fill_circle;
 pub mod gap_fill_circle;
 pub mod midpoint_circle;
 pub mod parallel_midpoint_circle;
