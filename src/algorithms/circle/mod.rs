@@ -4,5 +4,6 @@ pub mod enhanced_fill_circle;
 pub mod gap_fill_circle;
 pub mod midpoint_circle;
 pub mod parallel_midpoint_circle;
+pub mod roget_h_circle;
 pub mod scanline_circle;
 pub mod sitaraman_fill_circle;

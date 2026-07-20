@@ -3,7 +3,7 @@ use std::time::Instant;
 use crate::algorithms::{
     circle::baseline_circle::BaselineCircle, circle::enhanced_fill_circle::EnhancedFillCircle,
     circle::gap_fill_circle::GapFillCircle, circle::midpoint_circle::MidpointCircle,
-    circle::parallel_midpoint_circle::ParallelMidpointCircle,
+    circle::parallel_midpoint_circle::ParallelMidpointCircle, circle::roget_h_circle::RogetHCircle,
     circle::scanline_circle::ScanlineCircle, circle::sitaraman_fill_circle::SitaramanFillCircle,
     line::midpoint_line::MidpointLine, Algorithm,
 };
@@ -95,6 +95,16 @@ pub fn run_benchmark(radius: i32) -> Vec<(String, BenchmarkStats)> {
         "Enhanced Fill Circle",
         || {
             let mut algo = Box::new(EnhancedFillCircle::default());
+            algo.base.radius = radius;
+            algo
+        },
+        ITERATIONS,
+    ));
+
+    results.push(benchmark_algorithm(
+        "Roget-H Circle",
+        || {
+            let mut algo = Box::new(RogetHCircle::default());
             algo.base.radius = radius;
             algo
         },
