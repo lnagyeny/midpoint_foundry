@@ -43,6 +43,22 @@ pub fn build(
     mouse_grid: Option<(f32, f32)>,
     selected_cell: Option<(i32, i32)>,
 ) -> GeometryOutput {
+    // ── Research experiments: custom geometry short-circuit ───────────────────
+    // If an algorithm supplies its own complete geometry (e.g. the hexagonal
+    // grid experiment), use it verbatim and skip ALL square-grid drawing below.
+    // All existing square-grid algorithms return `None` here, so their output
+    // is unchanged.
+    //
+    // Hover/selection arrive here in the experiment's own coordinate system
+    // (see `input.rs`); floor to an integer cell just as the square path does.
+    let mouse_cell = mouse_grid.map(|(mx, my)| (mx.floor() as i32, my.floor() as i32));
+    if let Some(g) = algo.overlay_geometry(mouse_cell, selected_cell) {
+        return GeometryOutput {
+            line_verts: g.line_verts,
+            quad_verts: g.quad_verts,
+        };
+    }
+
     let mut lines = Vec::<Vertex>::new();
     let mut quads = Vec::<Vertex>::new();
 

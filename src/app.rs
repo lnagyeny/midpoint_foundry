@@ -20,7 +20,8 @@ use crate::{
         ellipse::gap_fill_ellipse::GapFillEllipse, ellipse::midpoint_ellipse::MidpointEllipse,
         ellipse::own_decision_ellipse::OwnDecisionEllipse,
         ellipse::own_fill_ellipse::OwnFillEllipse, ellipse::roland_fill_ellipse::RolandFillEllipse,
-        ellipse::virtual_fill_ellipse::VirtualFillEllipse, line::midpoint_line::MidpointLine,
+        ellipse::virtual_fill_ellipse::VirtualFillEllipse, hex::HexGridExperiment,
+        line::midpoint_line::MidpointLine,
         parabola::midpoint_parabola::MidpointParabola, Algorithm,
     },
     geometry,
@@ -86,6 +87,8 @@ impl AppState {
             Box::new(RolandFillEllipse::default()),
             Box::new(OwnFillEllipse::default()),
             Box::new(OwnDecisionEllipse::default()),
+            // Research experiment (hexagonal grid) — isolated, category "hex".
+            Box::new(HexGridExperiment::default()),
         ];
 
         Self {
@@ -138,12 +141,13 @@ impl AppState {
 
         let grid_area_w = self.renderer.width as f32 - UI_W;
         let grid_half = self.grid_size as f32 / 2.0;
+        let view = crate::renderer::GridView::new(grid_area_w, grid_half)
+            .with_world(self.algorithms[self.selected].viewport());
 
         self.renderer.render(
             &geo.line_verts,
             &geo.quad_verts,
-            grid_area_w,
-            grid_half,
+            view,
             egui_output,
             &mut self.egui_renderer,
             &self.egui_ctx,
@@ -223,6 +227,7 @@ impl ApplicationHandler for Application {
                     state.renderer.width,
                     state.renderer.height,
                     state.grid_size,
+                    state.algorithms[state.selected].viewport(),
                 );
             }
 
@@ -231,7 +236,11 @@ impl ApplicationHandler for Application {
                 button,
                 ..
             } if !egui_consumed => {
-                state.input_state.on_mouse_button(*btn_state, *button);
+                state.input_state.on_mouse_button(
+                    *btn_state,
+                    *button,
+                    state.algorithms[state.selected].viewport(),
+                );
             }
 
             WindowEvent::RedrawRequested => {

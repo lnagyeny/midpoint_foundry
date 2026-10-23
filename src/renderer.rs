@@ -48,17 +48,58 @@ struct Uniforms {
 }
 
 impl Uniforms {
-    /// Orthographic projection: grid coords [-half, +half] → NDC [-1, +1].
-    fn ortho(half: f32) -> Self {
+    /// Orthographic projection of `[cx−half, cx+half] × [cy−half, cy+half]`
+    /// onto NDC `[-1, +1]²`.
+    ///
+    /// The same scale (`1/half`) is used for both axes, so this is a uniform
+    /// (aspect-preserving) transform: circles stay circular and cells keep
+    /// their shape. Any non-square screen viewport is handled by
+    /// `RenderPass::set_viewport`, not by shearing the projection. Passing
+    /// `cx = cy = 0` reproduces the original square-grid projection.
+    fn ortho_centered(cx: f32, cy: f32, half: f32) -> Self {
         let s = 1.0 / half;
         Self {
             view_proj: [
                 [s, 0.0, 0.0, 0.0],
                 [0.0, s, 0.0, 0.0],
                 [0.0, 0.0, 1.0, 0.0],
-                [0.0, 0.0, 0.0, 1.0],
+                [-s * cx, -s * cy, 0.0, 1.0],
             ],
         }
+    }
+}
+
+// ── Grid view descriptor ──────────────────────────────────────────────────────
+
+/// How the world-space grid maps onto the screen for one frame.
+///
+/// This bundles the three viewport-related values so the renderer signature
+/// stays small. It is resolved in `app.rs` from the selected algorithm's
+/// [`Algorithm::viewport`] override (or the default square-grid mapping).
+#[derive(Copy, Clone, Debug)]
+pub struct GridView {
+    /// Physical width of the grid area (window width minus the egui panel).
+    pub area_width: f32,
+    /// Half the grid size in grid-space units (used when `world` is `None`).
+    pub grid_half: f32,
+    /// Optional experiment override `(centre_x, centre_y, half_extent)`.
+    pub world: Option<(f32, f32, f32)>,
+}
+
+impl GridView {
+    /// Default square-grid view: no aspect correction.
+    pub fn new(area_width: f32, grid_half: f32) -> Self {
+        Self {
+            area_width,
+            grid_half,
+            world: None,
+        }
+    }
+
+    /// Experiment view: a square screen viewport with uniform scale.
+    pub fn with_world(mut self, world: Option<(f32, f32, f32)>) -> Self {
+        self.world = world;
+        self
     }
 }
 
@@ -267,12 +308,16 @@ impl Renderer {
     }
 
     /// Upload geometry, run the grid render pass, then the egui render pass.
+    ///
+    /// `view` describes how the world-space grid maps to the screen. Its
+    /// `world` override (see [`Algorithm::viewport`]) selects a square screen
+    /// viewport with a single uniform scale; the default keeps the original
+    /// full grid-area projection.
     pub fn render(
         &mut self,
         line_verts: &[Vertex],
         quad_verts: &[Vertex],
-        grid_area_width: f32, // physical pixels of the grid viewport
-        grid_half: f32,       // half the grid size in grid-space units
+        view: GridView,
         egui_output: egui::FullOutput,
         egui_renderer: &mut egui_wgpu::Renderer,
         egui_ctx: &egui::Context,
@@ -281,8 +326,26 @@ impl Renderer {
         self.ensure_line_capacity(line_verts.len().max(1));
         self.ensure_quad_capacity(quad_verts.len().max(1));
 
+        // Resolve world-space view + the screen viewport rectangle.
+        // Uniform projection always; the rectangle may be square (override)
+        // or the full grid area (default).
+        let (cx, cy, half, vp) = match view.world {
+            Some((cx, cy, half)) if half > 0.0 => {
+                // Square physical viewport, centred in the grid area.
+                let side = view.area_width.min(self.height as f32);
+                let x = (view.area_width - side) * 0.5;
+                (cx, cy, half, (x, 0.0, side, side))
+            }
+            _ => (
+                0.0,
+                0.0,
+                view.grid_half,
+                (0.0, 0.0, view.area_width, self.height as f32),
+            ),
+        };
+
         // Upload uniforms.
-        let uniforms = Uniforms::ortho(grid_half);
+        let uniforms = Uniforms::ortho_centered(cx, cy, half);
         self.queue
             .write_buffer(&self.uniform_buf, 0, bytemuck::cast_slice(&[uniforms]));
 
@@ -335,7 +398,7 @@ impl Renderer {
                 occlusion_query_set: None,
             });
 
-            rp.set_viewport(0.0, 0.0, grid_area_width, self.height as f32, 0.0, 1.0);
+            rp.set_viewport(vp.0, vp.1, vp.2, vp.3, 0.0, 1.0);
             rp.set_bind_group(0, &self.bind_group, &[]);
 
             // Quads first (points, highlights) — behind grid lines.
