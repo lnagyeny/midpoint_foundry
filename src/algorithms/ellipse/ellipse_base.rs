@@ -99,17 +99,6 @@ impl EllipseBase {
     // Colour helpers
     // ------------------------------------------------------------------
 
-    /// Return the ring colour for point `i` using a palette of length `palette_len`.
-    /// Returns `None` when `point_rings` is empty (outline algorithms).
-    pub fn ring_color<const N: usize>(
-        &self,
-        i: usize,
-        palette: &[[f32; 3]; N],
-    ) -> Option<[f32; 3]> {
-        let r = *self.point_rings.get(i)? as usize;
-        Some(palette[r % N])
-    }
-
     /// Duplicate-aware colour for point `i`.
     ///
     /// * If duplicate highlighting is **off** → returns `fallback`.
@@ -203,21 +192,6 @@ impl EllipseBase {
             &mut self.show_smooth_overlay,
             "Draw analytic ellipse overlay",
         );
-        changed
-    }
-
-    /// `draw_ui_base` + duplicate-highlight toggle with cache invalidation.
-    pub fn draw_ui_with_duplicates(&mut self, ui: &mut Ui) -> bool {
-        let mut changed = self.draw_ui_base(ui);
-        changed |= ui
-            .add(egui::Checkbox::new(
-                &mut self.show_duplicates,
-                "Highlight duplicates",
-            ))
-            .changed();
-        if changed {
-            self.invalidate_cache();
-        }
         changed
     }
 

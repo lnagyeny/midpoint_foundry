@@ -1,5 +1,6 @@
 pub mod circle;
 pub mod ellipse;
+pub mod hex;
 pub mod line;
 pub mod parabola;
 
@@ -45,6 +46,44 @@ pub trait Algorithm: Send + Sync {
 
     /// Optional analytic ellipse overlay: `Some((cx, cy, radius_x, radius_y))`.
     fn overlay_ellipse(&self) -> Option<(i32, i32, i32, i32)> {
+        None
+    }
+
+    /// Optional complete custom geometry for **research experiments**.
+    ///
+    /// When this returns `Some`, `geometry::build` uses the supplied vertices
+    /// verbatim and skips all square-grid drawing (grid lines, unit-square
+    /// cells, overlays). This lets an isolated experiment (for example the
+    /// hexagonal grid in `algorithms::hex`) emit arbitrary polygons such as
+    /// hexagons without changing the square-grid rendering path.
+    ///
+    /// `mouse_cell` and `selected_cell` are passed through so an experiment can
+    /// draw its own hover/selection highlight in its own coordinate system.
+    ///
+    /// Every existing square-grid algorithm inherits the default `None`, so
+    /// their rendering is byte-for-byte unchanged.
+    fn overlay_geometry(
+        &self,
+        _mouse_cell: Option<(i32, i32)>,
+        _selected_cell: Option<(i32, i32)>,
+    ) -> Option<crate::algorithms::hex::ExperimentGeometry> {
+        None
+    }
+
+    /// Optional **viewport** override for a research experiment.
+    ///
+    /// Returns `(centre_x, centre_y, half_extent)` in *grid-space* units. When
+    /// `Some`, the renderer maps the world-space square
+    /// `[c−half, c+half]²` onto a **square screen viewport** (centred in the
+    /// grid area) using a single uniform scale for both axes. This keeps
+    /// cells regular and circles circular regardless of the window's
+    /// width/height, at the cost of letterboxing when the grid area is not
+    /// square.
+    ///
+    /// Default `None` keeps the original square-grid projection, which maps
+    /// `[−grid_size/2, +grid_size/2]²` onto the full rectangular grid area.
+    /// The default therefore leaves every existing algorithm unchanged.
+    fn viewport(&self) -> Option<(f32, f32, f32)> {
         None
     }
 
