@@ -127,7 +127,7 @@ impl InputState {
                     // Hex experiment: report the axial cell under the cursor so
                     // the shared hover/selection highlight lines up. The raw
                     // world coordinate is not meaningful as a square cell.
-                    let (ax, ay) = hex::world_to_axial(wx, wy);
+                    let (ax, ay) = hex::world_to_hex(wx, wy);
                     (ax as f32, ay as f32)
                 } else {
                     (wx, wy)
@@ -218,5 +218,74 @@ mod tests {
             (dx - dy).abs() < 1e-3,
             "anisotropic: |dx|={dx} |dy|={dy}"
         );
+    }
+
+    /// Inverse of `ScreenMap::screen_to_world`, for driving mouse tests from a
+    /// known render-world point. Only valid for the square viewport case.
+    fn world_to_screen(map: &ScreenMap, wx: f32, wy: f32) -> (f64, f64) {
+        let nx = (wx - map.world_cx) / (2.0 * map.world_half) + 0.5;
+        let ny = (wy - map.world_cy) / (2.0 * map.world_half) + 0.5;
+        let x = map.vp_x + nx * map.vp_w;
+        let y = map.vp_y + (1.0 - ny) * map.vp_h;
+        (x as f64, y as f64)
+    }
+
+    /// Mouse picking (hover and click selection) uses the rotated hit test, so
+    /// a pixel aimed at a rendered cell centre resolves to that exact cell.
+    #[test]
+    fn hex_mouse_picking_matches_rendered_cell_centres() {
+        let viewport = Some((0.0, 0.0, 10.0));
+        let map = ScreenMap::resolve(1200, 800, 50, viewport);
+        for (x, y) in [(0, 0), (1, 0), (0, 1), (-1, 1), (3, -2), (-4, 5)] {
+            let (wx, wy) = hex::hex_to_world(x, y);
+            let (px, py) = world_to_screen(&map, wx, wy);
+
+            let mut state = InputState::default();
+            state.on_cursor_moved(px, py, 1200, 800, 50, viewport);
+            assert_eq!(
+                state.mouse_grid,
+                Some((x as f32, y as f32)),
+                "hover at cell ({x},{y})"
+            );
+            state.on_mouse_button(ElementState::Pressed, MouseButton::Left, viewport);
+            assert_eq!(state.selected_cell, Some((x, y)), "click at cell ({x},{y})");
+        }
+    }
+
+    /// Near a shared edge the picking must still resolve to a real neighbour
+    /// (no gaps), and a point well inside a cell picks that cell.
+    #[test]
+    fn hex_mouse_picking_near_boundaries() {
+        let viewport = Some((0.0, 0.0, 10.0));
+        let map = ScreenMap::resolve(1200, 800, 50, viewport);
+        // A point just past the apothem along a neighbour normal crosses into
+        // that neighbour; just inside it stays in the origin cell.
+        let (wx_in, wy_in) = hex::hex_to_world(0, 0);
+        let (nx, ny) = hex::hex_to_world(0, 1); // neighbour direction after rotation
+        for (offset_x, offset_y, expected) in [
+            (0.0, 0.0, (0, 0)),
+            (0.3 * nx, 0.3 * ny, (0, 0)),
+            (0.7 * nx, 0.7 * ny, (0, 1)),
+        ] {
+            let (px, py) = world_to_screen(&map, wx_in + offset_x, wy_in + offset_y);
+            let mut state = InputState::default();
+            state.on_cursor_moved(px, py, 1200, 800, 50, viewport);
+            assert_eq!(
+                state.mouse_grid,
+                Some((expected.0 as f32, expected.1 as f32)),
+                "offset ({offset_x:.2},{offset_y:.2})"
+            );
+        }
+    }
+
+    /// The square-grid input path is untouched: with no viewport override the
+    /// cursor still reports raw world coordinates, not axial cells.
+    #[test]
+    fn square_grid_hover_is_unchanged() {
+        let mut state = InputState::default();
+        state.on_cursor_moved(425.0, 400.0, 1200, 800, 50, None);
+        assert_eq!(state.mouse_grid, Some((0.0, 0.0)));
+        state.on_mouse_button(ElementState::Pressed, MouseButton::Left, None);
+        assert_eq!(state.selected_cell, Some((0, 0)));
     }
 }

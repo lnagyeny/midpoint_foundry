@@ -20,7 +20,9 @@ use crate::{
         ellipse::gap_fill_ellipse::GapFillEllipse, ellipse::midpoint_ellipse::MidpointEllipse,
         ellipse::own_decision_ellipse::OwnDecisionEllipse,
         ellipse::own_fill_ellipse::OwnFillEllipse, ellipse::roland_fill_ellipse::RolandFillEllipse,
-        ellipse::virtual_fill_ellipse::VirtualFillEllipse, hex::HexGridExperiment,
+        ellipse::virtual_fill_ellipse::VirtualFillEllipse,
+        hex::layered_gap_fill_circle::LayeredGapFillCircle,
+        hex::midpoint_hex_circle::MidpointHexCircle, hex::HexGridExperiment,
         line::midpoint_line::MidpointLine,
         parabola::midpoint_parabola::MidpointParabola, Algorithm,
     },
@@ -89,6 +91,10 @@ impl AppState {
             Box::new(OwnDecisionEllipse::default()),
             // Research experiment (hexagonal grid) — isolated, category "hex".
             Box::new(HexGridExperiment::default()),
+            // Selectable hexagonal midpoint circle — same category/viewport.
+            Box::new(MidpointHexCircle::default()),
+            // Independent layered gap-fill circle experiment on the hex grid.
+            Box::new(LayeredGapFillCircle::default()),
         ];
 
         Self {

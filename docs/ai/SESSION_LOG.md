@@ -402,3 +402,112 @@ test count and input-limitation text, architecture.md §8 dead-code note).
 
 **Remaining work:** unchanged mathematically — resolve §11.6 (boundary
 definition + stop condition) using this experiment, then follow §11.9.
+
+---
+
+## 2026-11-23 — Correct hex midpoint circle sector/symmetry; pointy-top orientation
+
+**Objective:** (1) Bring the selectable `MidpointHexCircle` in line with the
+paper's 30° sector and 12-way symmetry without changing its recurrence.
+(2) Change the rendered hex grid from flat-top to pointy-top by a consistent
+30° render/input transform, leaving axial maths and square-grid code untouched.
+
+**Files changed:** `src/algorithms/hex/midpoint_hex_circle.rs` (new, untracked),
+`src/algorithms/hex/mod.rs`, `src/app.rs` (registry wiring from the earlier
+task), `src/input.rs`, `docs/research/hexagonal-grid.md` (§12.2 + validation
+note), `docs/ai/PROJECT_STATE.md`, `docs/ai/DECISIONS.md` (DR-011), and this log.
+Untracked `.devcontainer/`, `.github/`, `.gitignore` were preserved untouched.
+
+**Midpoint circle corrections:** loop `while y >= 0` → `while x <= y` (the paper
+is double-step with `x < y`; the single-step form must keep the `(k,k)` boundary
+cell, which the strict condition drops for r = 2, 5, 7, 9, 10, 12). Added
+integer-only `rotate60(x,y)=(-y,x+y)`, `reflect(x,y)=(y,x)` and the 12 images
+`{Rⁱp} ∪ {RⁱSp}`; `F` invariance and the exact 60° angle are tested with pure
+integer identities. Duplicate removal is documented/tested as applying only to
+the two shared reflection axes (`x == 0` start, `x == y` boundary).
+
+**Orientation implementation:** added `GRID_ROTATION = FRAC_PI_6`,
+`rotate_grid`/`unrotate_grid`, `hex_to_world` (forward) and `world_to_hex`
+(inverse-before-`world_to_axial`) in `hex/mod.rs`. `hexagon_vertices` now emits
+vertices at `30° + 60k` (top/bottom vertices, vertical left/right sides), taking
+an already-rotated world centre. All hex render call sites in `hex/mod.rs` and
+`midpoint_hex_circle.rs` use `hex_to_world`; `input.rs` hover/click uses
+`world_to_hex`. `region_cells` widens its half-extent by `cos30 + sin30` ≈ 1.366
+so rotated cells at the viewport corners are not missed. `cell_info` now reports
+the render world coordinate. Viewport, zoom/pan and the default `None` projection
+are unchanged.
+
+**Tests added/updated:** pointy-top vertices and vertical flat sides; shared-edge
+check via exactly two common vertices per neighbour pair; transform round trips
+and distance/radius preservation; coverage and interior adjacency via the
+rotated hit test; mouse hover/click at rendered centres and across an edge;
+square-grid hover isolation. The unchanged mapping-A math tests were kept.
+Midpoint-circle recurrence tests were kept and extended (sector boundary,
+initial/final points, 12 transforms, integer-only `F` preservation, centering,
+plus golden axial cell sets for r = 2, 3 proving the rasteriser output is
+unchanged by the rendering work).
+
+**Commands and results:** `cargo check` passed; `cargo test --all-targets`
+**42 passed, 0 failed**; `cargo clippy --bins` — only the 6 pre-existing warnings;
+`cargo fmt --check` — exit 1, pre-existing drift elsewhere (both edited Rust
+files are rustfmt-clean standalone). Full `git status`/diff reviewed.
+
+**Findings / limitations:** rasterised axial cell sets and `F`/neighbour math are
+bit-for-bit unchanged; a centred circle is rotation-invariant, so its overlay
+needed no change. No screenshot tool is available, so pointy-top pixels were not
+visually inspected — geometry and picking are verified numerically only.
+**Remaining work:** user-side visual confirmation; research §11 boundary
+definition remains the open mathematical question (now independent of the
+selectable midpoint-circle algorithm).
+
+---
+
+## 2026-11-23 — Layered gap-fill circle: independent hex concentric-band experiment
+
+**Objective:** Add a new, independent hexagonal-grid circle rasterisation
+experiment producing concentric layers of increasing radius, each with its own
+deterministic contrasting colour, following the read-only square-grid
+`GapFillCircle` as the mathematical reference. No changes to existing algorithms,
+hex maths/orientation, renderer or global colours.
+
+**Files:** created `src/algorithms/hex/layered_gap_fill_circle.rs`; modified
+`src/algorithms/hex/mod.rs` (module registration), `src/app.rs` (import +
+registry entry), `docs/ai/PROJECT_STATE.md`, `docs/ai/DECISIONS.md` (DR-012),
+and this log. Protected untracked `.devcontainer/`, `.github/`, `.gitignore`
+were not touched.
+
+**Implementation:** `layer_radii(min, max, step)` yields strictly increasing
+radii `min, min+step, … <= max` (defaults 2, 10, 2 → 2/4/6/8/10). Per layer,
+`circle_points(k)` from the validated hex midpoint module is rasterised for
+every intermediate radius `k` and unioned with the origin — this is the hex
+"gap fill" analogue of the reference's accumulated rings. The layer then claims
+only coordinates not claimed by earlier layers, so each band is exactly the
+newly added region and no cell is duplicated or overwritten. `filled = false`
+uses only the outline of each radius. All coordinate/decision logic is integer;
+floats are confined to rendering and the presentation-only colour helper.
+Colours are deterministic HSL with hue step 137° and alternating lightness;
+adjacent-layer RGB Manhattan distance is > 1.5 in tests. UI exposes minimum and
+maximum radius, layer spacing, filled/outline toggles and a region extent;
+viewport always contains the outermost layer.
+
+**Tests added (9, all passing):** strictly increasing/clamped radii; common
+origin centre (zero centroid + 180° symmetry); distinct/contrasting colours per
+layer; valid hex coordinates via render round trip and per-point colour lookup;
+no duplicates within or across layers; filled bands equal the gap-filled disk
+with no overwrite; outline-only disjointness; geometry quads carry layer
+colours; FNV-1a fingerprint proving the read-only `gap_fill_circle.rs` source is
+unchanged.
+
+**Commands and results:** `cargo check` passed; `cargo test --all-targets`
+**51 passed, 0 failed** (22 hex mod + 14 midpoint hex + 9 layered + 6 input);
+`cargo clippy --bins` — 6 pre-existing warnings only (none in new code);
+`cargo fmt --check` — exit 1 from pre-existing drift in `app.rs`, `hex/mod.rs`,
+`input.rs`, `benchmark.rs`, `ui.rs` (confirmed present at HEAD); the new
+`layered_gap_fill_circle.rs` is rustfmt-clean standalone. Full `git status`
+reviewed; no commit/push/tag.
+
+**Findings / limitations:** the square-grid reference was not modified (source
+fingerprint test). Visual appearance was not inspected — no screenshot tool;
+band geometry and colours are verified numerically. Next: user-side visual
+confirmation of pointy-top rendering and the layered bands; §11 boundary
+definition remains the open research question.

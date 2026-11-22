@@ -832,21 +832,25 @@ dynamically).
 
 ### 12.2 Coordinate mapping and geometry
 
-- Axial `(x, y)` → Cartesian via mapping A: `X = (√3/2)·x`, `Y = y + x/2`
-  (`hex::axial_to_cartesian`). Because the screen layout *is* mapping A, the
-  ideal circle `F = r²` renders as a **true Euclidean circle**. **[unchanged by
-  the orientation work: mapping A, `F`, neighbours and radius keep their exact
-  meaning]**
-- **Aspect correction is a render/input concern only**, decoupled from the maths
-  through the `viewport()` override (DR-009). The screen orientation is
-  **flat-top**: neighbour centre directions are at 30°/90°/150°/…, shared edges
-  are the flat sides. The default `None` view keeps the original square-grid
-  projection.
+- Axial `(x, y)` → unrotated Cartesian via mapping A: `X = (√3/2)·x`,
+  `Y = y + x/2` (`hex::axial_to_cartesian`). **[unchanged: mapping A, `F`,
+  neighbours and radius keep their exact meaning]**
+- **Orientation is a render/input concern only** (DR-011). Mapping A alone gives
+  a flat-top tiling; the whole rendered grid is rotated by `+30°` at the
+  boundary: `hex::hex_to_world` rotates the cell centre and the hexagon polygon
+  by the same angle, `hex::world_to_hex` applies the inverse before the unchanged
+  `world_to_axial` hit test. The screen orientation is **pointy-top**: vertices
+  at the top/bottom, flat vertical sides left/right; neighbour centre directions
+  are at 60°/120°/180°/… . A rotation preserves distances, so the ideal circle
+  `F = r²` still renders as a **true Euclidean circle** (radius unchanged).
+- **Aspect correction is also render/input only**, decoupled from the maths
+  through the unchanged `viewport()` override (DR-009). The default `None` view
+  keeps the original square-grid projection.
 - Six neighbour offsets `NEIGHBOURS` = `(1,0),(0,1),(−1,1),(−1,0),(0,−1),(1,−1)`,
   all at Cartesian distance 1. **[tested]**
-- **Flat-top hexagons** with circumradius `R = 1/√3 = √3/3` (apothem `1/2`).
+- **Pointy-top hexagons** with circumradius `R = 1/√3 = √3/3` (apothem `1/2`).
   Adjacent hexagons therefore share edges exactly, with no gaps or overlaps.
-  **[tested: `adjacent_hexagons_share_edges`]**
+  **[tested: `hexagon_geometry_is_correct`, `adjacent_hexagons_share_edges`]**
 - The drawn region is the **world square** `[−H, H]²` (field `world_half`); the
   visible square is one unit larger (`viewport` renders `[−(H+1), H+1]²`) so edge
   hexagons are clipped rather than ending on the boundary. `region_cells` covers
@@ -928,7 +932,7 @@ integer polynomial over `[−50,50]²`.
   SIGTERM/`timeout` and is **identical in the pre-change baseline binary**
   (rebuilt and re-run to confirm) — pre-existing teardown noise. **The window was
   not visually inspected** (no screenshot tool available: `grim`/`spectacle`/
-  `import`/`scrot` all absent), so the flat-top orientation and aspect-correct
+  `import`/`scrot` all absent), so the pointy-top orientation and aspect-correct
   square filling are verified at the level of *"renders + geometry numerically
   correct"* **not** "pixels were seen". This must be confirmed by the user.
 

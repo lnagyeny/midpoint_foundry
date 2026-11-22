@@ -29,9 +29,9 @@
 //!
 //! # What is drawn
 //!
-//! - The ideal circle `F = r²` (a true Euclidean circle, because the screen
-//!   layout *is* mapping A — see "orientation" below).
-//! - Flat-top hexagon cells, each classified by an explicit, documented rule
+//! - The ideal circle `F = r²` (a true Euclidean circle: rotation about the
+//!   origin leaves a circle unchanged).
+//! - Pointy-top hexagon cells, each classified by an explicit, documented rule
 //!   comparing its centre value `F` to `r²` (see [`CellClass`]).
 //!
 //! ## Orientation and the render transform
@@ -39,25 +39,34 @@
 //! The mathematical coordinate system is **mapping A** and is not changed by
 //! this experiment: `X = (√3/2)·x`, `Y = y + x/2`, with `F = x²+xy+y²`. Under
 //! mapping A the six nearest integer neighbours are at Cartesian distance 1
-//! and `F`'s level sets are circles.
+//! and `F`'s level sets are circles. The axial coordinates, `F`, the neighbour
+//! offsets and the radius keep their exact mathematical meaning.
 //!
-//! The lattice produced by mapping A is a **flat-top** hexagonal tiling: the
-//! neighbour centre directions are at 30°, 90°, 150°, … (so shared edges are
-//! horizontal-ish flat sides), and hexagons with apothem `1/2`
-//! (circumradius `R = 1/√3`) tile it edge-to-edge.
+//! The **screen orientation** is obtained by rotating that whole lattice by
+//! `+30°` at the rendering/input boundary only ([`rotate_grid`],
+//! [`hex_to_world`], [`unrotate_grid`], [`world_to_hex`]). Mapping A by itself
+//! renders as a flat-top tiling; the extra 30° makes the hexagons
+//! **pointy-top**: vertices at the top and bottom, flat vertical sides left
+//! and right. Cell centres and hexagon polygons both use the same forward
+//! transform, and mouse/world coordinates are inverse-transformed before the
+//! axial hit test, so hover and selection stay aligned with the drawn cells.
+//! Hexagons with apothem `1/2` (circumradius `R = 1/√3`) still tile
+//! edge-to-edge because rotation preserves all distances.
 //!
-//! The *rendering* transform is kept strictly separate from the maths:
-//! [`HexGridExperiment`] returns a [`Algorithm::viewport`] override, and the
-//! renderer maps the world-space square to a **square screen viewport** with a
-//! single uniform scale on both axes. This is what stops the grid from looking
-//! diagonally skewed when the window is not square, and keeps circles
-//! circular. The axial coordinates, `F`, the neighbours and the radius all
-//! keep their exact mathematical meaning.
+//! Separately, [`HexGridExperiment`] returns an [`Algorithm::viewport`]
+//! override: the renderer maps the world-space square to a **square screen
+//! viewport** with one uniform scale on both axes. Zoom, pan and viewport
+//! behaviour are unchanged; only the grid's orientation within that square
+//! has changed.
 //!
 //! The classification is **not** a rasterised boundary. There is deliberately
 //! no claim about "the correct hex midpoint outline": the boundary definition
 //! (single closest cell vs. the pair of bracketing cells) is unresolved
 //! (`docs/research/hexagonal-grid.md` §11.6, §11.10).
+
+// Separate selectable circle experiments; the experiment below is unchanged.
+pub mod layered_gap_fill_circle;
+pub mod midpoint_hex_circle;
 
 use crate::algorithms::{Algorithm, Point};
 use crate::renderer::Vertex;
@@ -126,6 +135,57 @@ pub fn world_to_axial(wx: f32, wy: f32) -> (i32, i32) {
     } else {
         (rx as i32, ry as i32)
     }
+}
+
+// ── Render/input-only orientation transform ───────────────────────────────────
+
+/// Rotation applied to the whole rendered grid: `+30°` about the origin.
+///
+/// Mapping A alone draws a **flat-top** tiling; rotating the lattice by 30°
+/// gives **pointy-top** hexagons (top/bottom vertices, vertical left/right
+/// sides). This is a *presentation* transform only: it never enters the axial
+/// maths, the circle decision logic or the symmetry maps.
+pub const GRID_ROTATION: f32 = std::f32::consts::FRAC_PI_6;
+
+/// `cos(GRID_ROTATION) = cos(30°) = √3/2` (the mapping-A horizontal spacing).
+const GRID_COS: f32 = SQRT3_OVER_2;
+/// `sin(GRID_ROTATION) = sin(30°) = 1/2`.
+const GRID_SIN: f32 = 0.5;
+
+/// Forward render transform: unrotated mapping-A world → rotated screen world.
+#[inline]
+pub fn rotate_grid(wx: f32, wy: f32) -> (f32, f32) {
+    (GRID_COS * wx - GRID_SIN * wy, GRID_SIN * wx + GRID_COS * wy)
+}
+
+/// Inverse render transform: rotated screen world → unrotated mapping-A world.
+#[inline]
+pub fn unrotate_grid(wx: f32, wy: f32) -> (f32, f32) {
+    (
+        GRID_COS * wx + GRID_SIN * wy,
+        -GRID_SIN * wx + GRID_COS * wy,
+    )
+}
+
+/// Render-space centre of axial cell `(x, y)` under the pointy-top grid.
+///
+/// All hex rendering (cell fills, outlines, neighbour highlights, selection)
+/// must use this instead of the raw [`axial_to_cartesian`].
+#[inline]
+pub fn hex_to_world(x: i32, y: i32) -> (f32, f32) {
+    let (wx, wy) = axial_to_cartesian(x, y);
+    rotate_grid(wx, wy)
+}
+
+/// Axial cell containing a point in **render** (rotated) world coordinates.
+///
+/// Undo the 30° render rotation first, then use the unchanged mapping-A hit
+/// test. Mouse picking and hover/selection must use this instead of the raw
+/// [`world_to_axial`].
+#[inline]
+pub fn world_to_hex(wx: f32, wy: f32) -> (i32, i32) {
+    let (ux, uy) = unrotate_grid(wx, wy);
+    world_to_axial(ux, uy)
 }
 
 /// The six axial neighbour offsets, in a fixed order (0 … 5).
@@ -221,22 +281,26 @@ impl CellClass {
 
 // ── Hexagon geometry (pure, testable) ────────────────────────────────────────
 
-/// Circumradius of the flat-top hexagons.
+/// Circumradius of the pointy-top hexagons.
 ///
 /// The nearest-neighbour distance of the centre lattice is 1, so adjacent
-/// hexagons must share edges when their apothem is `1/2`. For a flat-top
-/// hexagon the apothem is `(√3/2)·R`, hence `R = 1/√3 = √3/3`.
+/// hexagons share edges when their apothem is `1/2`. For a regular hexagon the
+/// apothem is `(√3/2)·R`, hence `R = 1/√3 = √3/3`. Rotation preserves this, so
+/// the value is unchanged from the flat-top layout.
 pub const HEX_CIRCUMRADIUS: f32 = 0.577_350_26; // √3 / 3
 
-/// The six vertices of the flat-top hexagon centred at `(cx, cy)`.
+/// The six vertices of the pointy-top hexagon centred at render-world `(cx, cy)`.
 ///
-/// Vertex angles are `0°, 60°, …, 300°`, giving flat top and bottom sides.
+/// Vertex angles are `30°, 90°, …, 330°`: the flat-top hexagon has been rotated
+/// by the same [`GRID_ROTATION`] as the cell centres, so vertices land at the
+/// top/bottom and the left/right sides are vertical. The caller must pass a
+/// centre from [`hex_to_world`], never a raw [`axial_to_cartesian`] position.
 /// Returned in counter-clockwise order, suitable for a triangle fan.
 pub fn hexagon_vertices(cx: f32, cy: f32) -> [(f32, f32); 6] {
     let mut out = [(0.0f32, 0.0f32); 6];
     let mut i = 0;
     while i < 6 {
-        let angle = std::f32::consts::FRAC_PI_3 * i as f32; // 60° steps
+        let angle = GRID_ROTATION + std::f32::consts::FRAC_PI_3 * i as f32; // 30° + 60° steps
         out[i] = (
             cx + HEX_CIRCUMRADIUS * angle.cos(),
             cy + HEX_CIRCUMRADIUS * angle.sin(),
@@ -329,16 +393,18 @@ impl Default for HexGridExperiment {
 }
 
 impl HexGridExperiment {
-    /// Axial cells whose hexagons overlap the world square `[−H, H]²`.
+    /// Axial cells whose hexagons overlap the rotated world square `[−H, H]²`.
     ///
-    /// For each integer axial `x`, the world `X` is `(√3/2)·x`, so
-    /// `|x| ≤ ⌈H/(√3/2)⌉`. For each such `x`, `Y = y + x/2`, so `y` ranges
-    /// over `[−H − x/2, H − x/2]`, expanded by one cell so hexagons that
-    /// straddle the edge are still emitted (the viewport clips them).
-    /// Row-major (`y` outer, `x` inner).
+    /// The rendered centre is `R₃₀(axial_to_cartesian(x, y))`, so a rendered
+    /// point inside the axis-aligned viewport corresponds to an *unrotated*
+    /// point inside a diamond whose largest coordinate is
+    /// `H·(|cos 30°| + |sin 30°|)`. Enlarging the search half-extent by that
+    /// factor keeps the original algebraic ranges conservative: no visible
+    /// cell is missed near a corner of the square. Row-major (`y` outer,
+    /// `x` inner).
     pub fn region_cells(&self) -> Vec<(i32, i32)> {
         let mut out = Vec::new();
-        let h = self.world_half.max(0) as f32 + HEX_CIRCUMRADIUS + 1.0;
+        let h = (self.world_half.max(0) as f32 + HEX_CIRCUMRADIUS + 1.0) * (GRID_COS + GRID_SIN);
         let x_max = (h / SQRT3_OVER_2).ceil() as i32 + 1;
         for x in -x_max..=x_max {
             let yc = -0.5 * x as f32;
@@ -371,7 +437,7 @@ impl HexGridExperiment {
 
         // 1. Cell fills, classified by their relationship to the circle.
         for &(x, y) in &cells {
-            let (cx, cy) = axial_to_cartesian(x, y);
+            let (cx, cy) = hex_to_world(x, y);
             let color = if self.show_classes {
                 CellClass::of(x, y, r).color()
             } else {
@@ -382,40 +448,40 @@ impl HexGridExperiment {
 
         // 2. Hover cell (soft blue, same intent as the square-grid hover row).
         if let Some((hx, hy)) = mouse_cell {
-            let (cx, cy) = axial_to_cartesian(hx, hy);
+            let (cx, cy) = hex_to_world(hx, hy);
             push_hex_fill(&mut quads, cx, cy, [0.5, 0.7, 1.0, 0.15]);
         }
 
         // 3. Selected cell (yellow, same intent as the square-grid selection).
         if let Some((sx, sy)) = selected_cell {
-            let (cx, cy) = axial_to_cartesian(sx, sy);
+            let (cx, cy) = hex_to_world(sx, sy);
             push_hex_fill(&mut quads, cx, cy, [1.0, 1.0, 0.0, 0.45]);
         }
 
         // 4. Cell outlines (thin grey) on top of the fills.
         for &(x, y) in &cells {
-            let (cx, cy) = axial_to_cartesian(x, y);
+            let (cx, cy) = hex_to_world(x, y);
             push_hex_outline(&mut lines, cx, cy, [0.22, 0.22, 0.26, 1.0]);
         }
 
         // 5. Six neighbours of the origin (bright green outlines).
         if self.show_neighbours {
             for (dx, dy) in NEIGHBOURS {
-                let (cx, cy) = axial_to_cartesian(dx, dy);
+                let (cx, cy) = hex_to_world(dx, dy);
                 push_hex_outline(&mut lines, cx, cy, [0.2, 1.0, 0.4, 0.9]);
             }
             // Origin marker.
-            let (cx, cy) = axial_to_cartesian(0, 0);
+            let (cx, cy) = hex_to_world(0, 0);
             push_hex_outline(&mut lines, cx, cy, [1.0, 1.0, 1.0, 0.9]);
         }
 
         // 6. Highlight outlines for hover and selection cells.
         if let Some((hx, hy)) = mouse_cell {
-            let (cx, cy) = axial_to_cartesian(hx, hy);
+            let (cx, cy) = hex_to_world(hx, hy);
             push_hex_outline(&mut lines, cx, cy, [0.5, 0.7, 1.0, 0.9]);
         }
         if let Some((sx, sy)) = selected_cell {
-            let (cx, cy) = axial_to_cartesian(sx, sy);
+            let (cx, cy) = hex_to_world(sx, sy);
             push_hex_outline(&mut lines, cx, cy, [1.0, 1.0, 0.0, 1.0]);
         }
 
@@ -533,9 +599,9 @@ impl Algorithm for HexGridExperiment {
         let f = f_quadratic(cx, cy);
         let r2 = self.radius as i64 * self.radius as i64;
         let class = CellClass::of(cx, cy, self.radius);
-        let (ax, ay) = axial_to_cartesian(cx, cy);
+        let (wx, wy) = hex_to_world(cx, cy);
         Some(format!(
-            "axial ({cx}, {cy})  cube s={}\nF = {f}\nr² = {r2}\nclass = {class:?}\ncart = ({ax:.3}, {ay:.3})",
+            "axial ({cx}, {cy})  cube s={}\nF = {f}\nr² = {r2}\nclass = {class:?}\nworld = ({wx:.3}, {wy:.3})",
             -cx - cy
         ))
     }
@@ -624,9 +690,8 @@ mod tests {
         assert_eq!((x, y), (3, -2), "rotation was not order 6");
     }
 
-    /// Flat-top hexagon geometry: the six vertices are at the circumradius and
-    /// edge-to-edge tiling works because the apothem equals half the
-    /// nearest-neighbour distance (0.5).
+    /// Pointy-top hexagon geometry: vertices at the top/bottom and vertical
+    /// flat sides left/right; apothem = 0.5 keeps the tiling edge-to-edge.
     #[test]
     fn hexagon_geometry_is_correct() {
         let v = hexagon_vertices(0.0, 0.0);
@@ -637,24 +702,34 @@ mod tests {
                 "vertex {i} radius {rr}"
             );
         }
-        // Flat-top: vertex 0 points along +X, so top and bottom edges are flat.
-        assert!((v[0].0 - HEX_CIRCUMRADIUS).abs() < 1e-5);
-        assert!(v[0].1.abs() < 1e-5);
-        // Apothem = R * cos(30°) = 0.57735 * 0.86603 ≈ 0.5.
-        let apothem = HEX_CIRCUMRADIUS * (std::f32::consts::FRAC_PI_6).cos();
-        assert!(
-            (apothem - 0.5).abs() < 1e-4,
-            "apothem {apothem} != 0.5 (hexagons would not tile)"
-        );
+        // Pointy-top: vertices 1 and 4 lie on the Y axis (top and bottom).
+        assert!(v[1].0.abs() < 1e-5 && (v[1].1 - HEX_CIRCUMRADIUS).abs() < 1e-5);
+        assert!(v[4].0.abs() < 1e-5 && (v[4].1 + HEX_CIRCUMRADIUS).abs() < 1e-5);
+        // Left/right sides are vertical: vertices 2/3 share x = −0.5,
+        // vertices 5/0 share x = +0.5 (apothem = R·cos 30° = 0.5).
+        let half = HEX_CIRCUMRADIUS * (std::f32::consts::FRAC_PI_6).cos();
+        assert!((half - 0.5).abs() < 1e-4, "apothem {half} != 0.5");
+        for (a, b) in [(2, 3), (5, 0)] {
+            assert!(
+                (v[a].0 - v[b].0).abs() < 1e-5,
+                "side {a}-{b} not vertical in x"
+            );
+            assert!((v[a].1 - v[b].1).abs() > 0.1, "side {a}-{b} degenerate");
+        }
+        assert!((v[2].0 + half).abs() < 1e-5 && (v[5].0 - half).abs() < 1e-5);
     }
 
-    /// Adjacent hexagons share an edge: the shared edge midpoint is equidistant
-    /// (apothem) from both centres.
+    /// Adjacent pointy-top hexagons share an edge: exactly two vertices are
+    /// common to each neighbouring pair, and the shared midpoint sits at the
+    /// apothem from both centres.
     #[test]
     fn adjacent_hexagons_share_edges() {
-        let (cx0, cy0) = axial_to_cartesian(0, 0);
+        let (cx0, cy0) = hex_to_world(0, 0);
+        let v0 = hexagon_vertices(cx0, cy0);
         for (dx, dy) in NEIGHBOURS {
-            let (cx1, cy1) = axial_to_cartesian(dx, dy);
+            let (cx1, cy1) = hex_to_world(dx, dy);
+            let d = ((cx1 - cx0).powi(2) + (cy1 - cy0).powi(2)).sqrt();
+            assert!((d - 1.0).abs() < 1e-5, "neighbour distance {d} != 1");
             let mx = 0.5 * (cx0 + cx1);
             let my = 0.5 * (cy0 + cy1);
             let d0 = ((mx - cx0).powi(2) + (my - cy0).powi(2)).sqrt();
@@ -663,6 +738,15 @@ mod tests {
                 (d0 - 0.5).abs() < 1e-4 && (d1 - 0.5).abs() < 1e-4,
                 "shared edge midpoint not at apothem: d0={d0}, d1={d1}"
             );
+            let v1 = hexagon_vertices(cx1, cy1);
+            let shared = v0
+                .iter()
+                .filter(|(ax, ay)| {
+                    v1.iter()
+                        .any(|(bx, by)| (ax - bx).abs() < 1e-5 && (ay - by).abs() < 1e-5)
+                })
+                .count();
+            assert_eq!(shared, 2, "neighbour ({dx},{dy}) shares {shared} vertices");
         }
     }
 
@@ -753,7 +837,7 @@ mod tests {
     }
 
     /// The emitted fill vertices for a single cell really are a closed hexagon
-    /// centred on that cell's Cartesian position (renderer-output-level check).
+    /// centred on that cell's rendered world position (renderer-output check).
     #[test]
     fn emitted_fill_forms_closed_hexagon() {
         let exp = HexGridExperiment {
@@ -765,7 +849,7 @@ mod tests {
         };
         let g = exp.build_geometry(None, None);
         // Find the origin cell's fan: all six fan centres equal (0, 0).
-        let (ox, oy) = axial_to_cartesian(0, 0);
+        let (ox, oy) = hex_to_world(0, 0);
         assert_eq!(g.quad_verts.len() % 18, 0);
         let mut found_origin = false;
         for chunk in g.quad_verts.chunks(18) {
@@ -879,15 +963,74 @@ mod tests {
         }
     }
 
+    /// The render transform really is a +30° rotation of the mapping-A lattice,
+    /// and its inverse undoes it exactly.
+    #[test]
+    fn hex_to_world_is_axial_to_cartesian_rotated_30_degrees() {
+        assert!((GRID_ROTATION - std::f32::consts::FRAC_PI_6).abs() < 1e-6);
+        for x in -12..=12 {
+            for y in -12..=12 {
+                let (ax, ay) = axial_to_cartesian(x, y);
+                let (rx, ry) = rotate_grid(ax, ay);
+                let (hx, hy) = hex_to_world(x, y);
+                assert!((rx - hx).abs() < 1e-5 && (ry - hy).abs() < 1e-5);
+                let (ux, uy) = unrotate_grid(rx, ry);
+                assert!(
+                    (ux - ax).abs() < 1e-4 && (uy - ay).abs() < 1e-4,
+                    "inverse failed at ({x},{y})"
+                );
+            }
+        }
+    }
+
+    /// Forward render transform then inverse hit test recovers the exact axial
+    /// cell, including points slightly off the centre (representative picking).
+    #[test]
+    fn hex_to_world_and_world_to_hex_round_trip() {
+        for x in -10..=10 {
+            for y in -10..=10 {
+                let (wx, wy) = hex_to_world(x, y);
+                assert_eq!(world_to_hex(wx, wy), (x, y), "centre ({x},{y})");
+                for (dx, dy) in [(0.2, 0.0), (0.0, 0.2), (-0.15, 0.1), (0.1, -0.2)] {
+                    assert_eq!(
+                        world_to_hex(wx + dx, wy + dy),
+                        (x, y),
+                        "near-centre ({x},{y}) offset ({dx},{dy})"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Rotation preserves all distances: cell centres stay one lattice step
+    /// apart and the ideal circle `F = r²` keeps its Euclidean radius on screen.
+    #[test]
+    fn render_rotation_preserves_radii_and_neighbour_distances() {
+        for x in -8..=8 {
+            for y in -8..=8 {
+                let (ax, ay) = axial_to_cartesian(x, y);
+                let (wx, wy) = hex_to_world(x, y);
+                let a2 = ax * ax + ay * ay;
+                let w2 = wx * wx + wy * wy;
+                assert!((a2 - w2).abs() < 1e-3, "radius changed at ({x},{y})");
+            }
+        }
+        for (dx, dy) in NEIGHBOURS {
+            let (wx, wy) = hex_to_world(dx, dy);
+            let d = (wx * wx + wy * wy).sqrt();
+            assert!((d - 1.0).abs() < 1e-5, "neighbour distance {d} != 1");
+        }
+    }
+
     /// Reference point-in-hexagon test via the six edge normals.
     ///
-    /// A point is inside the regular flat-top hexagon iff its signed distance
+    /// A point is inside the regular pointy-top hexagon iff its signed distance
     /// to every edge line is at most the apothem (0.5). The edge normals point
-    /// at 30° + 60k (the six neighbour directions of mapping A).
+    /// at 60° + 60k, i.e. the mapping-A neighbour directions rotated by 30°.
     fn inside_hexagon(px: f32, py: f32, cx: f32, cy: f32) -> bool {
         const APOTHEM: f32 = 0.5;
         for k in 0..6 {
-            let ang = std::f32::consts::FRAC_PI_6 + k as f32 * std::f32::consts::FRAC_PI_3;
+            let ang = std::f32::consts::FRAC_PI_3 + k as f32 * std::f32::consts::FRAC_PI_3;
             let (nx, ny) = (ang.cos(), ang.sin());
             if (px - cx) * nx + (py - cy) * ny > APOTHEM + 1e-4 {
                 return false;
@@ -896,11 +1039,12 @@ mod tests {
         true
     }
 
-    /// The drawing region must **fully cover** the world square `[−H, H]²`:
-    /// every sample point's nearest axial cell is present in `region_cells()`.
-    /// This is exhaustive in the discrete domain (nearest-cell assignment is
-    /// piecewise constant), so a missing cell cannot slip between samples.
-    /// The reference is the hit test `world_to_axial`, not the rendering.
+    /// The drawing region must **fully cover** the rotated world square
+    /// `[−H, H]²`: every sample point's nearest axial cell (via the render
+    /// transform) is present in `region_cells()`. This is exhaustive in the
+    /// discrete domain (nearest-cell assignment is piecewise constant), so a
+    /// missing cell cannot slip between samples. The reference is the render
+    /// hit test `world_to_hex`, not the rendering.
     #[test]
     fn region_covers_world_square() {
         for world_half in [2, 5, 12, 20] {
@@ -916,14 +1060,14 @@ mod tests {
                 for j in 0..=n {
                     let px = -h + 2.0 * h * i as f32 / n as f32;
                     let py = -h + 2.0 * h * j as f32 / n as f32;
-                    let cell = world_to_axial(px, py);
+                    let cell = world_to_hex(px, py);
                     assert!(
                         cells.contains(&cell),
                         "world_half={world_half}: point ({px},{py}) -> nearest cell {cell:?} is outside the drawn region"
                     );
                     // The covering hexagon must actually contain the point
                     // (independent geometric reference).
-                    let (cx, cy) = axial_to_cartesian(cell.0, cell.1);
+                    let (cx, cy) = hex_to_world(cell.0, cell.1);
                     assert!(
                         inside_hexagon(px, py, cx, cy),
                         "world_half={world_half}: point ({px},{py}) not inside cell {cell:?}"
@@ -964,7 +1108,7 @@ mod tests {
         let inner = exp.world_half as f32 - 1.0;
         let mut checked = 0;
         for &(x, y) in &cells {
-            let (cx, cy) = axial_to_cartesian(x, y);
+            let (cx, cy) = hex_to_world(x, y);
             let (ax, ay) = (cx.abs(), cy.abs());
             // Corners of the hexagon reach R beyond the centre.
             if ax + HEX_CIRCUMRADIUS > inner || ay + HEX_CIRCUMRADIUS > inner {
