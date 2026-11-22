@@ -297,3 +297,69 @@ current colouring/UI behaviour for no functional gain); `#[allow(dead_code)]`
 **Consequences:** `clippy --bins` warning locations drop from 9 to 6, none in
 the touched files; no behaviour changes. `src/algorithms/ellipse/mod.rs`
 (pre-existing user edit adding `own_decision_ellipse`) was not touched.
+
+---
+
+## DR-011 — Pointy-top orientation via a render/input-only 30° rotation
+
+**Date:** 2026-11-23
+**Status:** accepted
+
+**Context:** Mapping A (`X = (√3/2)x`, `Y = y + x/2`) draws flat-top hexagons.
+The requested UI has vertical left/right sides and top/bottom vertices. The
+axial lattice, `F = x²+xy+y²`, the neighbour offsets and the midpoint-circle
+recurrence/symmetry must not change, and square-grid algorithms must stay
+byte-for-byte unaffected.
+
+**Decision:** Rotate the *whole rendered grid* by `+30°` at the boundary:
+`hex::rotate_grid` / `hex_to_world` for cell centres and hexagon polygons, and
+the inverse `unrotate_grid` / `world_to_hex` before the existing
+`world_to_axial` hit test. `hexagon_vertices` uses angles `30° + 60k`.
+`region_cells` widens its search half-extent by `cos30 + sin30` so no visible
+cell is missed near the viewport corners. No trig or floats enter algorithmic
+decision logic; the viewport override (DR-009) and zoom/pan are unchanged.
+
+**Alternatives considered:** (a) Rotate only the polygons — rejected, because
+centres, picking and overlays would no longer align; (b) rewrite the axial
+mapping to a pointy-top basis — rejected, because that changes the mathematical
+coordinate system and every rasterisation result.
+
+**Consequences:** One transform layer in `src/algorithms/hex/mod.rs`, all hex
+render call sites, one input call site, and the associated geometry/picking
+tests changed. Rasterised axial cell sets are identical; a circle remains a
+circle because rotation about the origin preserves radius. This supersedes the
+flat-top wording in DR-008's historical context.
+
+---
+
+## DR-012 — Layered gap-fill circle as an independent hex experiment
+
+**Date:** 2026-11-23
+**Status:** accepted
+
+**Context:** A new concentric, per-radius coloured hex circle experiment was
+requested, modelled on the read-only square-grid `GapFillCircle` but without
+touching it or any existing midpoint/ellipse/square-grid algorithm.
+
+**Decision:** Implement `LayeredGapFillCircle` in
+`src/algorithms/hex/layered_gap_fill_circle.rs`. A layer's fill is the union of
+all integer midpoint outlines from radius 1 up to that layer's radius (plus the
+origin), which is the hex analogue of the square-grid reference's accumulated
+rings. Each layer claims only cells not claimed by a smaller radius, so bands
+are disjoint and never overwrite. Outlines come from the already-validated
+`midpoint_hex_circle::circle_points` (integer recurrence + 12 integer
+symmetries); no new rasterisation maths or dependency is introduced. Colours are
+deterministic golden-angle HSL (hue step 137°, alternating lightness) applied in
+the hex geometry builder, not in the renderer or any shared palette.
+
+**Alternatives considered:** (a) Filling with an `F <= r²` brute-force disk —
+rejected because the midpoint outline can lie outside that disk, so the band
+would not contain its own rim; (b) editing `GapFillCircle` to use hex
+coordinates — rejected by scope protection; (c) random colours — rejected as
+non-reproducible.
+
+**Consequences:** One new module, one module registration, one registry entry
+and one test module (9 tests). The read-only reference is guarded by an FNV-1a
+source fingerprint test. Clippy stays at the 6 pre-existing warnings; the new
+file is rustfmt-clean. Colours and layer bands are verified numerically, not
+visually.
